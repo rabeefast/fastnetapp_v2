@@ -1,0 +1,58 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Generate Android platform files
+        run: flutter create --platforms=android --org com.fastnet .
+
+      - name: Remove misplaced root duplicates (if any)
+        run: rm -rf core features models services state main.dart firebase_options.dart analysis_options.yaml || true
+
+      - name: Normalize smart quotes in sources (upload safety net)
+        run: |
+          find lib -name '*.dart' -exec perl -i -pe "s/\x{2018}/'/g; s/\x{2019}/'/g; s/\x{201C}/\"/g; s/\x{201D}/\"/g" {} + || true
+
+      - name: Set minSdk 23 for Firebase
+        run: |
+          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 23/' android/app/build.gradle.kts || true
+          sed -i 's/minSdkVersion = flutter.minSdkVersion/minSdkVersion = 23/' android/app/build.gradle.kts || true
+
+      - name: Remove generated sample test
+        run: rm -f test/widget_test.dart
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Static analysis (all screens)
+        run: flutter analyze --no-fatal-warnings
+
+      - name: Run unit tests
+        run: flutter test test/calculator_test.dart
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FastNet-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
