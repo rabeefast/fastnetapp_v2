@@ -17,20 +17,25 @@ class BatchesPage extends StatelessWidget {
       s = await DbService().loadSettings(uid);
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('تعذر تحميل الإعدادات؛ تحقق من اتصال Firestore.'),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تعذر تحميل الإعدادات؛ تحقق من اتصال Firestore.'),
+          ),
+        );
       }
       return;
     }
     if (s.categories.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('أضف فئة واحدة على الأقل من الإعدادات أولًا.'),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('أضف فئة واحدة على الأقل من الإعدادات أولًا.'),
+        ),
+      );
       return;
     }
     final nameCtrl = TextEditingController(
-        text: 'دفعة ' + DateFormat('yyyy-MM-dd').format(DateTime.now()));
+      text: 'دفعة ' + DateFormat('yyyy-MM-dd').format(DateTime.now()),
+    );
     String cat = s.categories.first.key;
     final firstSerial = TextEditingController();
     final count = TextEditingController();
@@ -43,43 +48,56 @@ class BatchesPage extends StatelessWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) => AlertDialog(
           title: Text(saving ? 'جارٍ إنشاء الدفعة...' : 'دفعة كروت جديدة'),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
-            TextField(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
                 controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'اسم الدفعة')),
-            InitialDropdownFormField<String>(
-              initialValue: cat,
-              decoration: const InputDecoration(labelText: 'الفئة'),
-              items: s.categories
-                  .map((c) =>
-                      DropdownMenuItem(value: c.key, child: Text(c.label)))
-                  .toList(),
-              onChanged: (v) => setS(() => cat = v!),
-            ),
-            TextField(
+                decoration: const InputDecoration(labelText: 'اسم الدفعة'),
+              ),
+              InitialDropdownFormField<String>(
+                initialValue: cat,
+                decoration: const InputDecoration(labelText: 'الفئة'),
+                items: s.categories
+                    .map(
+                      (c) =>
+                          DropdownMenuItem(value: c.key, child: Text(c.label)),
+                    )
+                    .toList(),
+                onChanged: (v) => setS(() => cat = v!),
+              ),
+              TextField(
                 controller: firstSerial,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'أول رقم تسلسلي')),
-            TextField(
+                decoration: const InputDecoration(labelText: 'أول رقم تسلسلي'),
+              ),
+              TextField(
                 controller: count,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'عدد الكروت')),
-            TextField(
+                decoration: const InputDecoration(labelText: 'عدد الكروت'),
+              ),
+              TextField(
                 controller: firstCard,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                    labelText: 'أول رقم كرت (اسم المستخدم)')),
-            if (error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(error!,
-                    style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
+                  labelText: 'أول رقم كرت (اسم المستخدم)',
+                ),
               ),
-          ]),
+              if (error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    error!,
+                    style: TextStyle(color: Theme.of(ctx).colorScheme.error),
+                  ),
+                ),
+            ],
+          ),
           actions: [
             TextButton(
-                onPressed: saving ? null : () => Navigator.pop(ctx, false),
-                child: const Text('إلغاء')),
+              onPressed: saving ? null : () => Navigator.pop(ctx, false),
+              child: const Text('إلغاء'),
+            ),
             FilledButton(
               onPressed: saving
                   ? null
@@ -100,12 +118,13 @@ class BatchesPage extends StatelessWidget {
                       });
                       try {
                         await DbService().createBatch(
-                            managerUid: uid,
-                            name: nameCtrl.text.trim(),
-                            categoryKey: cat,
-                            firstSerial: fs,
-                            count: n,
-                            firstCardNo: fc);
+                          managerUid: uid,
+                          name: nameCtrl.text.trim(),
+                          categoryKey: cat,
+                          firstSerial: fs,
+                          count: n,
+                          firstCardNo: fc,
+                        );
                         if (ctx.mounted) Navigator.pop(ctx, true);
                       } catch (e) {
                         setS(() {
@@ -127,9 +146,11 @@ class BatchesPage extends StatelessWidget {
     count.dispose();
     firstCard.dispose();
     if (context.mounted && created == true) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('تم إنشاء الدفعة دون استبدال كروت موجودة.'),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم إنشاء الدفعة دون استبدال كروت موجودة.'),
+        ),
+      );
     }
   }
 
@@ -154,13 +175,15 @@ class BatchesPage extends StatelessWidget {
                 child: ListTile(
                   leading: const Icon(Icons.inventory_2),
                   title: Text(d['name'] ?? ''),
-                  subtitle: Text('الفئة: ' +
-                      (d['categoryKey'] ?? '') +
-                      ' - من تسلسل ' +
-                      (d['firstSerial']?.toString() ?? '') +
-                      ' - ' +
-                      (d['count']?.toString() ?? '') +
-                      ' كرت'),
+                  subtitle: Text(
+                    'الفئة: ' +
+                        (d['categoryKey'] ?? '') +
+                        ' - من تسلسل ' +
+                        (d['firstSerial']?.toString() ?? '') +
+                        ' - ' +
+                        (d['count']?.toString() ?? '') +
+                        ' كرت',
+                  ),
                 ),
               );
             },

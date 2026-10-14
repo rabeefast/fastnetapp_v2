@@ -5,43 +5,47 @@ import 'package:fastnet_app/models/category_config.dart';
 void main() {
   group('الحساب المالي المعتمد من المدير', () {
     final c100 = CategoryConfig(
-        key: 'c100',
-        label: '100',
-        umProfile: '100new',
-        mgMode: 'page',
-        mgPrice: 4250,
-        agMode: 'page',
-        agPrice: 4500,
-        pageSize: 51,
-        freePerPage: 1);
+      key: 'c100',
+      label: '100',
+      umProfile: '100new',
+      mgMode: 'page',
+      mgPrice: 4250,
+      agMode: 'page',
+      agPrice: 4500,
+      pageSize: 51,
+      freePerPage: 1,
+    );
     final c250 = CategoryConfig(
-        key: 'c250',
-        label: '250',
-        umProfile: '250new',
-        mgMode: 'page',
-        mgPrice: 10625,
-        agMode: 'page',
-        agPrice: 11250,
-        pageSize: 51,
-        freePerPage: 1);
+      key: 'c250',
+      label: '250',
+      umProfile: '250new',
+      mgMode: 'page',
+      mgPrice: 10625,
+      agMode: 'page',
+      agPrice: 11250,
+      pageSize: 51,
+      freePerPage: 1,
+    );
     final c2500 = CategoryConfig(
-        key: 'c2500',
-        label: '2500',
-        umProfile: '2500r',
-        mgMode: 'card',
-        mgPrice: 2125,
-        agMode: 'card',
-        agPrice: 2250);
+      key: 'c2500',
+      label: '2500',
+      umProfile: '2500r',
+      mgMode: 'card',
+      mgPrice: 2125,
+      agMode: 'card',
+      agPrice: 2250,
+    );
     final c500 = CategoryConfig(
-        key: 'c500',
-        label: '500',
-        umProfile: '500new',
-        mgMode: 'page',
-        mgPrice: 21250,
-        agMode: 'card',
-        agPrice: 450,
-        pageSize: 51,
-        freePerPage: 1);
+      key: 'c500',
+      label: '500',
+      umProfile: '500new',
+      mgMode: 'page',
+      mgPrice: 21250,
+      agMode: 'card',
+      agPrice: 450,
+      pageSize: 51,
+      freePerPage: 1,
+    );
 
     test('سعر الكرت الواحد من صفحة 100 للوكيل = 85', () {
       expect(DeliveryCalculator.unitMg(c100), 85.0);
@@ -64,13 +68,14 @@ void main() {
     });
     test('حجم الصفحة مرن: صفحة 50 بلا مجاني تعطي سعر الكرت = السعر/50', () {
       final c = CategoryConfig(
-          key: 'x',
-          label: 'x',
-          umProfile: 'x',
-          mgMode: 'page',
-          mgPrice: 5000,
-          pageSize: 50,
-          freePerPage: 0);
+        key: 'x',
+        label: 'x',
+        umProfile: 'x',
+        mgMode: 'page',
+        mgPrice: 5000,
+        pageSize: 50,
+        freePerPage: 0,
+      );
       expect(DeliveryCalculator.unitMg(c), 100.0);
     });
   });

@@ -19,8 +19,9 @@ class AgentHome extends StatelessWidget {
         title: Text('فاست نت - ' + me.name),
         actions: [
           IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: () => context.read<AuthService>().signOut()),
+            icon: const Icon(Icons.logout),
+            onPressed: () => context.read<AuthService>().signOut(),
+          ),
         ],
       ),
       body: ListView(
@@ -32,8 +33,10 @@ class AgentHome extends StatelessWidget {
               child: ListTile(
                 leading: const Icon(Icons.account_balance_wallet),
                 title: const Text('مديونيتك الحالية'),
-                trailing: Text((s.data ?? 0).toStringAsFixed(0) + ' ر.ي',
-                    style: const TextStyle(fontSize: 20)),
+                trailing: Text(
+                  (s.data ?? 0).toStringAsFixed(0) + ' ر.ي',
+                  style: const TextStyle(fontSize: 20),
+                ),
               ),
             ),
           ),
@@ -43,17 +46,20 @@ class AgentHome extends StatelessWidget {
               final s = ss.data;
               if (s == null) return const SizedBox.shrink();
               return Column(
-                  children: s.categories
-                      .map((c) => FutureBuilder<int>(
-                            future: db.stockCount(me.uid, c.key),
-                            builder: (_, x) => Card(
-                              child: ListTile(
-                                  title: Text('مخزونك فئة ' + c.label),
-                                  trailing:
-                                      Text((x.data ?? 0).toString() + ' كرت')),
-                            ),
-                          ))
-                      .toList());
+                children: s.categories
+                    .map(
+                      (c) => FutureBuilder<int>(
+                        future: db.stockCount(me.uid, c.key),
+                        builder: (_, x) => Card(
+                          child: ListTile(
+                            title: Text('مخزونك فئة ' + c.label),
+                            trailing: Text((x.data ?? 0).toString() + ' كرت'),
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              );
             },
           ),
           const Divider(),
@@ -62,13 +68,18 @@ class AgentHome extends StatelessWidget {
             builder: (_, s) => Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('نقاط البيع التابعة لك',
-                    style: Theme.of(context).textTheme.titleLarge),
-                ...(s.data ?? []).map((p) => Card(
-                      child: ListTile(
-                          title: Text(p.name),
-                          subtitle: const Text('نقطة بيع')),
-                    )),
+                Text(
+                  'نقاط البيع التابعة لك',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                ...(s.data ?? []).map(
+                  (p) => Card(
+                    child: ListTile(
+                      title: Text(p.name),
+                      subtitle: const Text('نقطة بيع'),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
@@ -78,16 +89,20 @@ class AgentHome extends StatelessWidget {
                     onPressed: (s.data ?? []).isEmpty
                         ? null
                         : () {
-                            Navigator.of(context).push(MaterialPageRoute(
-                              builder: (_) => Scaffold(
-                                appBar: AppBar(
-                                    title: const Text('تسليم لنقطة بيع')),
-                                body: DeliveryWizard(
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => Scaffold(
+                                  appBar: AppBar(
+                                    title: const Text('تسليم لنقطة بيع'),
+                                  ),
+                                  body: DeliveryWizard(
                                     side: 'ag',
                                     fromUid: me.uid,
-                                    managerUid: me.parentUid ?? me.uid),
+                                    managerUid: me.parentUid ?? me.uid,
+                                  ),
+                                ),
                               ),
-                            ));
+                            );
                           },
                   ),
                 ),

@@ -14,7 +14,9 @@ class AuthService extends ChangeNotifier {
   Future<String?> signIn(String email, String password) async {
     try {
       final cred = await _auth.signInWithEmailAndPassword(
-          email: email.trim(), password: password);
+        email: email.trim(),
+        password: password,
+      );
       final p = await _fetchOrCreateProfile(cred.user!);
       if (p == null) {
         await _auth.signOut();
@@ -79,7 +81,9 @@ class AuthService extends ChangeNotifier {
   }) async {
     try {
       final cred = await _auth.createUserWithEmailAndPassword(
-          email: email.trim(), password: password);
+        email: email.trim(),
+        password: password,
+      );
       await _db.collection('requests').doc(cred.user!.uid).set({
         'name': name,
         'phone': phone,

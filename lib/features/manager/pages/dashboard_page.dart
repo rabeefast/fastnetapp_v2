@@ -24,9 +24,11 @@ class DashboardPage extends StatelessWidget {
               child: ListTile(
                 leading: const Icon(Icons.category),
                 title: const Text('الفئات المتتبعة'),
-                subtitle: Text(settings == null
-                    ? 'جارٍ التحميل...'
-                    : settings.categories.map((c) => c.label).join(' ، ')),
+                subtitle: Text(
+                  settings == null
+                      ? 'جارٍ التحميل...'
+                      : settings.categories.map((c) => c.label).join(' ، '),
+                ),
               ),
             ),
             StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -50,17 +52,21 @@ class DashboardPage extends StatelessWidget {
               ),
             ),
             if (settings != null) ...[
-              Text('المخزون الحالي (باليد)',
-                  style: Theme.of(context).textTheme.titleLarge),
-              ...settings.categories.map((c) => FutureBuilder<int>(
-                    future: db.stockCount(uid, c.key),
-                    builder: (_, s) => Card(
-                      child: ListTile(
-                        title: Text('فئة ' + c.label),
-                        trailing: Text((s.data ?? 0).toString() + ' كرت'),
-                      ),
+              Text(
+                'المخزون الحالي (باليد)',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              ...settings.categories.map(
+                (c) => FutureBuilder<int>(
+                  future: db.stockCount(uid, c.key),
+                  builder: (_, s) => Card(
+                    child: ListTile(
+                      title: Text('فئة ' + c.label),
+                      trailing: Text((s.data ?? 0).toString() + ' كرت'),
                     ),
-                  )),
+                  ),
+                ),
+              ),
             ],
           ],
         );

@@ -46,9 +46,13 @@ class _SignupPageState extends State<SignupPage> {
         _error = err;
       });
       if (err == null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content:
-                Text('تم إرسال طلبك. سيصلك تسجيل الدخول بعد موافقة المدير.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'تم إرسال طلبك. سيصلك تسجيل الدخول بعد موافقة المدير.',
+            ),
+          ),
+        );
         context.go('/login');
       }
     }
@@ -71,28 +75,33 @@ class _SignupPageState extends State<SignupPage> {
           ),
           const SizedBox(height: 12),
           TextField(
-              controller: _name,
-              decoration: const InputDecoration(labelText: 'الاسم')),
+            controller: _name,
+            decoration: const InputDecoration(labelText: 'الاسم'),
+          ),
           const SizedBox(height: 12),
           TextField(
-              controller: _phone,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(labelText: 'رقم الجوال')),
+            controller: _phone,
+            keyboardType: TextInputType.phone,
+            decoration: const InputDecoration(labelText: 'رقم الجوال'),
+          ),
           const SizedBox(height: 12),
           TextField(
-              controller: _email,
-              keyboardType: TextInputType.emailAddress,
-              decoration:
-                  const InputDecoration(labelText: 'البريد الإلكتروني')),
+            controller: _email,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(labelText: 'البريد الإلكتروني'),
+          ),
           const SizedBox(height: 12),
           TextField(
-              controller: _pass,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'كلمة المرور')),
+            controller: _pass,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: 'كلمة المرور'),
+          ),
           if (_error != null) ...[
             const SizedBox(height: 12),
-            Text(_error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           ],
           const SizedBox(height: 20),
           FilledButton(

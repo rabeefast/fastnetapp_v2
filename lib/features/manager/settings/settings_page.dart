@@ -6,6 +6,7 @@ import '../../../models/settings_model.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/telegram_service.dart';
 import '../../../state/app_state.dart';
+import 'router_page.dart';
 
 /// إعدادات المدير: الفئات (العدد + الأسماء) والأسعار للمسارين،
 /// حد تنبيه المخزون، وربط التليجرام.
@@ -43,11 +44,14 @@ class _SettingsPageState extends State<SettingsPage> {
     context.read<AppState>().settings = SettingsModel.fromMap(_draft.toMap());
     await context.read<AppState>().save(uid);
     await TelegramService.saveCredentials(
-        _tgToken.text.trim(), _tgChat.text.trim());
+      _tgToken.text.trim(),
+      _tgChat.text.trim(),
+    );
     if (mounted) {
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('تم حفظ الإعدادات')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تم حفظ الإعدادات')));
     }
   }
 
@@ -55,10 +59,13 @@ class _SettingsPageState extends State<SettingsPage> {
     if (n < 1 || n > 12) return;
     final cats = _draft.categories;
     while (cats.length < n) {
-      cats.add(CategoryConfig(
+      cats.add(
+        CategoryConfig(
           key: 'c${DateTime.now().millisecondsSinceEpoch}',
           label: '',
-          umProfile: ''));
+          umProfile: '',
+        ),
+      );
     }
     while (cats.length > n) {
       cats.removeLast();
@@ -79,6 +86,8 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             _buildCategoriesSection(),
             const SizedBox(height: 16),
+            _buildRouterSection(),
+            const SizedBox(height: 16),
             _buildThresholdSection(),
             const SizedBox(height: 16),
             _buildTelegramSection(),
@@ -91,6 +100,25 @@ class _SettingsPageState extends State<SettingsPage> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildRouterSection() {
+    return Card(
+      child: ListTile(
+        leading: const Icon(Icons.router),
+        title: const Text('اتصال الراوتر (قراءة فقط)'),
+        subtitle: const Text('فحص الاتصال ومزامنة حالة الكروت من User Manager'),
+        trailing: const Icon(Icons.chevron_left),
+        onTap: () {
+          final uid = context.read<AuthService>().user!.uid;
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => RouterSettingsPage(managerUid: uid),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -134,17 +162,20 @@ class _SettingsPageState extends State<SettingsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('حد تنبيه انخفاض المخزون',
-            style: Theme.of(context).textTheme.titleLarge),
+        Text(
+          'حد تنبيه انخفاض المخزون',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
         const SizedBox(height: 8),
         TextFormField(
           key: ValueKey('thr${_draft.lowStockThreshold}'),
           initialValue: '${_draft.lowStockThreshold}',
           keyboardType: TextInputType.number,
           decoration: const InputDecoration(
-              labelText: 'كروت',
-              helperText:
-                  'يُرسل تنبيه تليجرام عند وصول مخزون أي مستلم لهذا الحد أو أقل'),
+            labelText: 'كروت',
+            helperText:
+                'يُرسل تنبيه تليجرام عند وصول مخزون أي مستلم لهذا الحد أو أقل',
+          ),
           onChanged: (v) => _draft.lowStockThreshold = int.tryParse(v) ?? 20,
         ),
       ],
@@ -161,8 +192,9 @@ class _SettingsPageState extends State<SettingsPage> {
           controller: _tgToken,
           obscureText: true,
           decoration: const InputDecoration(
-              labelText: 'Bot Token',
-              helperText: 'يُحفظ على أجهزة المدير فقط ولا يُرسل لأي سيرفر'),
+            labelText: 'Bot Token',
+            helperText: 'يُحفظ على أجهزة المدير فقط ولا يُرسل لأي سيرفر',
+          ),
         ),
         const SizedBox(height: 8),
         TextField(
@@ -176,13 +208,20 @@ class _SettingsPageState extends State<SettingsPage> {
           label: const Text('إرسال رسالة اختبار'),
           onPressed: () async {
             await TelegramService.saveCredentials(
-                _tgToken.text.trim(), _tgChat.text.trim());
+              _tgToken.text.trim(),
+              _tgChat.text.trim(),
+            );
             final ok = await TelegramService.sendTest();
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(ok
-                      ? 'تم الإرسال — تحقق من تليجرام'
-                      : 'فشل الإرسال — تحقق من التوكن والـ Chat ID')));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    ok
+                        ? 'تم الإرسال — تحقق من تليجرام'
+                        : 'فشل الإرسال — تحقق من التوكن والـ Chat ID',
+                  ),
+                ),
+              );
             }
           },
         ),
@@ -196,8 +235,11 @@ class _CategoryEditor extends StatelessWidget {
   final VoidCallback onChanged;
   final VoidCallback? onDelete;
 
-  const _CategoryEditor(
-      {required this.cat, required this.onChanged, this.onDelete});
+  const _CategoryEditor({
+    required this.cat,
+    required this.onChanged,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -212,8 +254,9 @@ class _CategoryEditor extends StatelessWidget {
                   child: TextFormField(
                     key: ValueKey('l${cat.key}'),
                     initialValue: cat.label,
-                    decoration:
-                        const InputDecoration(labelText: 'اسم الفئة (الظاهر)'),
+                    decoration: const InputDecoration(
+                      labelText: 'اسم الفئة (الظاهر)',
+                    ),
                     onChanged: (v) {
                       cat.label = v;
                     },
@@ -225,8 +268,9 @@ class _CategoryEditor extends StatelessWidget {
                     key: ValueKey('u${cat.key}'),
                     initialValue: cat.umProfile,
                     decoration: const InputDecoration(
-                        labelText: 'اسمها في User Manager',
-                        hintText: 'مثال: 100new'),
+                      labelText: 'اسمها في User Manager',
+                      hintText: 'مثال: 100new',
+                    ),
                     onChanged: (v) {
                       cat.umProfile = v;
                     },
@@ -234,83 +278,97 @@ class _CategoryEditor extends StatelessWidget {
                 ),
                 if (onDelete != null)
                   IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: onDelete),
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: onDelete,
+                  ),
               ],
             ),
             const SizedBox(height: 8),
-            Row(children: [
-              Expanded(
-                  child: _modeField('المدير ← الوكيل', cat.mgMode, (m) {
-                cat.mgMode = m;
-                onChanged();
-              })),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextFormField(
-                  key: ValueKey('mg${cat.key}'),
-                  initialValue: '${cat.mgPrice}',
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                      labelText: cat.mgMode == 'page'
-                          ? 'سعر الصفحة (ر.ي)'
-                          : 'سعر الكرت (ر.ي)'),
-                  onChanged: (v) {
-                    cat.mgPrice = double.tryParse(v) ?? cat.mgPrice;
-                  },
-                ),
-              ),
-            ]),
-            const SizedBox(height: 8),
-            Row(children: [
-              Expanded(
-                  child: _modeField('الوكيل ← نقطة البيع', cat.agMode, (m) {
-                cat.agMode = m;
-                onChanged();
-              })),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextFormField(
-                  key: ValueKey('ag${cat.key}'),
-                  initialValue: '${cat.agPrice}',
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                      labelText: cat.agMode == 'page'
-                          ? 'سعر الصفحة (ر.ي)'
-                          : 'سعر الكرت (ر.ي)'),
-                  onChanged: (v) {
-                    cat.agPrice = double.tryParse(v) ?? cat.agPrice;
-                  },
-                ),
-              ),
-            ]),
-            if (cat.mgMode == 'page' || cat.agMode == 'page')
-              Row(children: [
+            Row(
+              children: [
                 Expanded(
-                  child: TextFormField(
-                    key: ValueKey('ps${cat.key}'),
-                    initialValue: '${cat.pageSize}',
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'كروت الصفحة'),
-                    onChanged: (v) {
-                      cat.pageSize = int.tryParse(v) ?? cat.pageSize;
-                    },
-                  ),
+                  child: _modeField('المدير ← الوكيل', cat.mgMode, (m) {
+                    cat.mgMode = m;
+                    onChanged();
+                  }),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextFormField(
-                    key: ValueKey('fp${cat.key}'),
-                    initialValue: '${cat.freePerPage}',
+                    key: ValueKey('mg${cat.key}'),
+                    initialValue: '${cat.mgPrice}',
                     keyboardType: TextInputType.number,
-                    decoration:
-                        const InputDecoration(labelText: 'مجاني بعد كل صفحة'),
+                    decoration: InputDecoration(
+                      labelText: cat.mgMode == 'page'
+                          ? 'سعر الصفحة (ر.ي)'
+                          : 'سعر الكرت (ر.ي)',
+                    ),
                     onChanged: (v) {
-                      cat.freePerPage = int.tryParse(v) ?? cat.freePerPage;
+                      cat.mgPrice = double.tryParse(v) ?? cat.mgPrice;
                     },
                   ),
                 ),
-              ]),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _modeField('الوكيل ← نقطة البيع', cat.agMode, (m) {
+                    cat.agMode = m;
+                    onChanged();
+                  }),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextFormField(
+                    key: ValueKey('ag${cat.key}'),
+                    initialValue: '${cat.agPrice}',
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: cat.agMode == 'page'
+                          ? 'سعر الصفحة (ر.ي)'
+                          : 'سعر الكرت (ر.ي)',
+                    ),
+                    onChanged: (v) {
+                      cat.agPrice = double.tryParse(v) ?? cat.agPrice;
+                    },
+                  ),
+                ),
+              ],
+            ),
+            if (cat.mgMode == 'page' || cat.agMode == 'page')
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      key: ValueKey('ps${cat.key}'),
+                      initialValue: '${cat.pageSize}',
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'كروت الصفحة',
+                      ),
+                      onChanged: (v) {
+                        cat.pageSize = int.tryParse(v) ?? cat.pageSize;
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextFormField(
+                      key: ValueKey('fp${cat.key}'),
+                      initialValue: '${cat.freePerPage}',
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'مجاني بعد كل صفحة',
+                      ),
+                      onChanged: (v) {
+                        cat.freePerPage = int.tryParse(v) ?? cat.freePerPage;
+                      },
+                    ),
+                  ),
+                ],
+              ),
           ],
         ),
       ),

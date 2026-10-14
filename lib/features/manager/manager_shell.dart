@@ -6,6 +6,7 @@ import 'pages/accounts_page.dart';
 import 'pages/batches_page.dart';
 import 'pages/dashboard_page.dart';
 import 'pages/deliveries_page.dart';
+import 'pages/history_page.dart';
 import 'settings/settings_page.dart';
 
 class ManagerShell extends StatefulWidget {
@@ -21,6 +22,7 @@ class _ManagerShellState extends State<ManagerShell> {
     DeliveriesPage(),
     BatchesPage(),
     AccountsPage(),
+    HistoryPage(),
     SettingsPage(),
   ];
 
@@ -45,8 +47,11 @@ class _ManagerShellState extends State<ManagerShell> {
           NavigationDestination(icon: Icon(Icons.dashboard), label: 'الرئيسية'),
           NavigationDestination(icon: Icon(Icons.handshake), label: 'التسليم'),
           NavigationDestination(
-              icon: Icon(Icons.inventory_2), label: 'الدفعات'),
+            icon: Icon(Icons.inventory_2),
+            label: 'الدفعات',
+          ),
           NavigationDestination(icon: Icon(Icons.people), label: 'الحسابات'),
+          NavigationDestination(icon: Icon(Icons.receipt_long), label: 'السجل'),
           NavigationDestination(icon: Icon(Icons.settings), label: 'الإعدادات'),
         ],
       ),

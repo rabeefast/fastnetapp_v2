@@ -22,8 +22,10 @@ class _LoginPageState extends State<LoginPage> {
       _busy = true;
       _error = null;
     });
-    final err =
-        await context.read<AuthService>().signIn(_email.text, _pass.text);
+    final err = await context.read<AuthService>().signIn(
+          _email.text,
+          _pass.text,
+        );
     if (mounted) {
       setState(() {
         _busy = false;
@@ -45,15 +47,18 @@ class _LoginPageState extends State<LoginPage> {
               children: [
                 const Icon(Icons.wifi_tethering, size: 72),
                 const SizedBox(height: 8),
-                Text('فاست نت',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineMedium),
+                Text(
+                  'فاست نت',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
                 const SizedBox(height: 24),
                 TextField(
                   controller: _email,
                   keyboardType: TextInputType.emailAddress,
-                  decoration:
-                      const InputDecoration(labelText: 'البريد الإلكتروني'),
+                  decoration: const InputDecoration(
+                    labelText: 'البريد الإلكتروني',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -62,17 +67,21 @@ class _LoginPageState extends State<LoginPage> {
                   decoration: InputDecoration(
                     labelText: 'كلمة المرور',
                     suffixIcon: IconButton(
-                      icon:
-                          Icon(_hide ? Icons.visibility : Icons.visibility_off),
+                      icon: Icon(
+                        _hide ? Icons.visibility : Icons.visibility_off,
+                      ),
                       onPressed: () => setState(() => _hide = !_hide),
                     ),
                   ),
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 12),
-                  Text(_error!,
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.error)),
+                  Text(
+                    _error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                 ],
                 const SizedBox(height: 20),
                 FilledButton(
@@ -81,7 +90,8 @@ class _LoginPageState extends State<LoginPage> {
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2))
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Text('دخول'),
                 ),
                 const SizedBox(height: 12),

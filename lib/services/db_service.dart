@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/app_user.dart';
@@ -28,7 +30,10 @@ class DbService {
       .snapshots();
 
   Future<void> approveRequest(
-      String uid, Map<String, dynamic> req, String parentUid) async {
+    String uid,
+    Map<String, dynamic> req,
+    String parentUid,
+  ) async {
     await users.doc(uid).set({
       'name': req['name'] ?? '',
       'phone': req['phone'] ?? '',
@@ -149,7 +154,10 @@ class DbService {
           .snapshots();
 
   Future<List<Map<String, dynamic>>> inStockCards(
-      String batchId, String categoryKey, String holderUid) async {
+    String batchId,
+    String categoryKey,
+    String holderUid,
+  ) async {
     final batch = await _db.collection('batches').doc(batchId).get();
     final managerUid = batch.data()?['managerUid'] as String?;
     final cards = _db.collection('cards');
@@ -166,16 +174,17 @@ class DbService {
         .where('holderUid', isEqualTo: holderUid)
         .get();
     final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[
-      ...inStock.docs.where((d) =>
-          d.data()['holderUid'] == holderUid ||
-          (d.data()['holderUid'] == null && managerUid == holderUid)),
+      ...inStock.docs.where(
+        (d) =>
+            d.data()['holderUid'] == holderUid ||
+            (d.data()['holderUid'] == null && managerUid == holderUid),
+      ),
       ...delivered.docs,
     ];
     final list = docs
-        .map<Map<String, dynamic>>((d) => {
-              'id': d.id,
-              'serial': (d.data()['serial'] as num).toInt(),
-            })
+        .map<Map<String, dynamic>>(
+          (d) => {'id': d.id, 'serial': (d.data()['serial'] as num).toInt()},
+        )
         .toList();
     list.sort((a, b) => (a['serial'] as int).compareTo(b['serial'] as int));
     return list;
@@ -219,7 +228,10 @@ class DbService {
 
   // ---- التسليم والسداد ----
   Future<void> addDelivery(
-      Delivery d, List<String> cardIds, String holderUid) async {
+    Delivery d,
+    List<String> cardIds,
+    String holderUid,
+  ) async {
     if (cardIds.isEmpty || cardIds.length > 499) {
       throw ArgumentError('يجب أن يحتوي التسليم على 1 إلى 499 كرتًا');
     }
@@ -230,8 +242,10 @@ class DbService {
     final w = _db.batch();
     w.set(_db.collection('deliveries').doc(d.id), d.toMap());
     for (final id in cardIds) {
-      w.update(_db.collection('cards').doc(id),
-          {'status': 'delivered', 'holderUid': holderUid});
+      w.update(_db.collection('cards').doc(id), {
+        'status': 'delivered',
+        'holderUid': holderUid,
+      });
     }
     await w.commit();
   }
@@ -265,5 +279,118 @@ class DbService {
       p += (x.data()['amount'] ?? 0).toDouble();
     }
     return d - p;
+  }
+
+  /// Marks a selected set of cards sold only if every serial is still held
+  /// by this user; partial sales are rejected.
+  Future<int> markSold(String uid, List<int> serials) async {
+    final wanted = serials.toSet();
+    if (wanted.isEmpty || wanted.length > 499 || wanted.any((n) => n <= 0)) {
+      throw ArgumentError('أدخل من 1 إلى 499 رقمًا تسلسليًا موجبًا');
+    }
+    if (wanted.length != serials.length) {
+      throw ArgumentError('لا تكرر الرقم التسلسلي نفسه');
+    }
+
+    final snapshot =
+        await _db.collection('cards').where('holderUid', isEqualTo: uid).get();
+    final targets = snapshot.docs.where((doc) {
+      final data = doc.data();
+      final serial = data['serial'];
+      return data['status'] == 'delivered' &&
+          serial is num &&
+          wanted.contains(serial.toInt());
+    }).toList();
+
+    if (targets.length != wanted.length) {
+      throw StateError('بعض الأرقام غير موجودة في مخزونك أو سبق بيعها');
+    }
+    final targetSerials =
+        targets.map((d) => (d.data()['serial'] as num).toInt()).toSet();
+    if (targetSerials.length != wanted.length) {
+      throw StateError(
+        'يوجد تسلسل مكرر في دفعات مختلفة؛ لا يمكن تحديد الكرت بدقة',
+      );
+    }
+
+    final soldAt = DateTime.now().millisecondsSinceEpoch;
+    // Re-read every target inside the transaction so two devices cannot sell
+    // the same card after independently observing the earlier "delivered"
+    // state. Keep below Firestore's 500-write transaction limit.
+    await _db.runTransaction((transaction) async {
+      final currentDocs = <DocumentSnapshot<Map<String, dynamic>>>[];
+      for (final target in targets) {
+        currentDocs.add(await transaction.get(target.reference));
+      }
+      for (final doc in currentDocs) {
+        final data = doc.data();
+        final serial = data?['serial'];
+        if (!doc.exists ||
+            data == null ||
+            data['holderUid'] != uid ||
+            data['status'] != 'delivered' ||
+            serial is! num ||
+            !wanted.contains(serial.toInt())) {
+          throw StateError('تغير المخزون أثناء البيع؛ أعد المحاولة');
+        }
+      }
+      for (final doc in currentDocs) {
+        transaction.update(doc.reference, {
+          'status': 'sold',
+          'soldAt': soldAt,
+        });
+      }
+    });
+    return targets.length;
+  }
+
+  /// Streams new manager-wide history plus older manager-origin deliveries.
+  Stream<List<Delivery>> deliveriesForManager(String managerUid) {
+    final controller = StreamController<List<Delivery>>();
+    final current = <String, Map<String, dynamic>>{};
+    final legacy = <String, Map<String, dynamic>>{};
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? currentSub;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? legacySub;
+
+    void emit() {
+      final merged = <String, Map<String, dynamic>>{...legacy, ...current};
+      final items = merged.entries
+          .map((entry) => Delivery.fromMap(entry.key, entry.value))
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      if (!controller.isClosed) controller.add(items);
+    }
+
+    void replace(
+      Map<String, Map<String, dynamic>> target,
+      QuerySnapshot<Map<String, dynamic>> snapshot,
+    ) {
+      target
+        ..clear()
+        ..addEntries(snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())));
+      emit();
+    }
+
+    currentSub = _db
+        .collection('deliveries')
+        .where('managerUid', isEqualTo: managerUid)
+        .snapshots()
+        .listen(
+          (snapshot) => replace(current, snapshot),
+          onError: controller.addError,
+        );
+    legacySub = _db
+        .collection('deliveries')
+        .where('fromUid', isEqualTo: managerUid)
+        .snapshots()
+        .listen(
+          (snapshot) => replace(legacy, snapshot),
+          onError: controller.addError,
+        );
+    controller.onCancel = () async {
+      await currentSub?.cancel();
+      await legacySub?.cancel();
+    };
+    return controller.stream;
   }
 }

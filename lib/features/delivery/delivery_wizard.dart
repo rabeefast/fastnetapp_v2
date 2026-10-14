@@ -16,11 +16,12 @@ class DeliveryWizard extends StatefulWidget {
   final String side;
   final String fromUid;
   final String managerUid;
-  const DeliveryWizard(
-      {super.key,
-      required this.side,
-      required this.fromUid,
-      required this.managerUid});
+  const DeliveryWizard({
+    super.key,
+    required this.side,
+    required this.fromUid,
+    required this.managerUid,
+  });
 
   @override
   State<DeliveryWizard> createState() => _DeliveryWizardState();
@@ -49,7 +50,9 @@ class _DeliveryWizardState extends State<DeliveryWizard> {
     try {
       _settings = await _db.loadSettings(widget.managerUid);
       _recipients = await _db.childrenOf(
-          widget.fromUid, widget.side == 'mg' ? 'agent' : 'pos');
+        widget.fromUid,
+        widget.side == 'mg' ? 'agent' : 'pos',
+      );
       final bs = await FirebaseFirestore.instance
           .collection('batches')
           .where('managerUid', isEqualTo: widget.managerUid)
@@ -59,14 +62,16 @@ class _DeliveryWizardState extends State<DeliveryWizard> {
         final categoryKey = data['categoryKey'] as String? ?? '';
         final cards = await _db.inStockCards(d.id, categoryKey, widget.fromUid);
         if (cards.isNotEmpty) {
-          _batches.add(_BatchInfo(
-            d.id,
-            data['name'] as String? ?? '',
-            categoryKey,
-            cards.length,
-            (data['firstSerial'] as num?)?.toInt() ?? 1,
-            (data['count'] as num?)?.toInt() ?? 0,
-          ));
+          _batches.add(
+            _BatchInfo(
+              d.id,
+              data['name'] as String? ?? '',
+              categoryKey,
+              cards.length,
+              (data['firstSerial'] as num?)?.toInt() ?? 1,
+              (data['count'] as num?)?.toInt() ?? 0,
+            ),
+          );
         }
       }
     } catch (e) {
@@ -112,14 +117,19 @@ class _DeliveryWizardState extends State<DeliveryWizard> {
           initialValue: _batchId,
           decoration: const InputDecoration(labelText: 'الدفعة'),
           items: _batches
-              .map((b) => DropdownMenuItem(
+              .map(
+                (b) => DropdownMenuItem(
                   value: b.id,
-                  child: Text(b.name +
-                      ' (' +
-                      b.categoryKey +
-                      ' - ' +
-                      b.inStock.toString() +
-                      ' كرت)')))
+                  child: Text(
+                    b.name +
+                        ' (' +
+                        b.categoryKey +
+                        ' - ' +
+                        b.inStock.toString() +
+                        ' كرت)',
+                  ),
+                ),
+              )
               .toList(),
           onChanged: (v) => setState(() {
             _batchId = v;
@@ -132,47 +142,51 @@ class _DeliveryWizardState extends State<DeliveryWizard> {
         InitialDropdownFormField<String>(
           initialValue: _recipientUid,
           decoration: InputDecoration(
-              labelText: widget.side == 'mg'
-                  ? 'الوكيل المستلم'
-                  : 'نقطة البيع المستلمة'),
+            labelText:
+                widget.side == 'mg' ? 'الوكيل المستلم' : 'نقطة البيع المستلمة',
+          ),
           items: _recipients
               .map((r) => DropdownMenuItem(value: r.uid, child: Text(r.name)))
               .toList(),
           onChanged: (v) => setState(() => _recipientUid = v),
         ),
         const SizedBox(height: 12),
-        ..._items.map((e) => _ItemEditor(
-              key: ObjectKey(e),
-              item: e,
-              cats: cats
-                  .where((c) => c.key == selectedBatch?.categoryKey)
-                  .toList(),
-              batchId: _batchId,
-              batchFirstSerial: selectedBatch?.firstSerial ?? 1,
-              batchCount: selectedBatch?.count ?? 0,
-              holderUid: widget.fromUid,
-              modeForCategory: (c) => widget.side == 'mg' ? c.mgMode : c.agMode,
-              unitPrice: (c) => _unit(c),
-              pagePrice: (c) => _pagePrice(c),
-              onChanged: () => setState(() {}),
-              onRemove: _items.length > 1
-                  ? () => setState(() => _items.remove(e))
-                  : null,
-            )),
+        ..._items.map(
+          (e) => _ItemEditor(
+            key: ObjectKey(e),
+            item: e,
+            cats:
+                cats.where((c) => c.key == selectedBatch?.categoryKey).toList(),
+            batchId: _batchId,
+            batchFirstSerial: selectedBatch?.firstSerial ?? 1,
+            batchCount: selectedBatch?.count ?? 0,
+            holderUid: widget.fromUid,
+            modeForCategory: (c) => widget.side == 'mg' ? c.mgMode : c.agMode,
+            unitPrice: (c) => _unit(c),
+            pagePrice: (c) => _pagePrice(c),
+            onChanged: () => setState(() {}),
+            onRemove: _items.length > 1
+                ? () => setState(() => _items.remove(e))
+                : null,
+          ),
+        ),
         const SizedBox(height: 8),
         Card(
           child: ListTile(
             title: const Text('إجمالي قيمة التسليم'),
-            trailing: Text(_total().toStringAsFixed(0) + ' ر.ي',
-                style: Theme.of(context).textTheme.titleLarge),
+            trailing: Text(
+              _total().toStringAsFixed(0) + ' ر.ي',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
           ),
         ),
         const SizedBox(height: 8),
         FilledButton.icon(
           icon: const Icon(Icons.check),
           onPressed: _canSave() && !_saving ? _save : null,
-          label:
-              Text(_saving ? 'جارٍ الحفظ...' : 'حفظ التسليم وتوليد المديونية'),
+          label: Text(
+            _saving ? 'جارٍ الحفظ...' : 'حفظ التسليم وتوليد المديونية',
+          ),
         ),
       ],
     );
@@ -199,24 +213,30 @@ class _DeliveryWizardState extends State<DeliveryWizard> {
       allIds.addAll(item.cardIds);
     }
     if (allIds.length > 499 || allIds.toSet().length != allIds.length) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('التسليم يجب أن يتضمن 499 كرتًا كحد أقصى، دون تكرار'),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('التسليم يجب أن يتضمن 499 كرتًا كحد أقصى، دون تكرار'),
+        ),
+      );
       return;
     }
     setState(() => _saving = true);
     final rec = _recipients.firstWhere((r) => r.uid == _recipientUid);
     final items = <DeliveryItem>[];
     for (final e in _items) {
-      items.add(DeliveryItem(
+      items.add(
+        DeliveryItem(
           categoryKey: e.cat!.key,
           type: e.mode,
           pages: e.mode == 'pages' ? e.selectedPages.length : 0,
           cardSerials: e.mode == 'cards' ? e.chosenSerials : const [],
-          amount: e.amount));
+          amount: e.amount,
+        ),
+      );
     }
     final d = Delivery(
       id: FirebaseFirestore.instance.collection('deliveries').doc().id,
+      managerUid: widget.managerUid,
       fromUid: widget.fromUid,
       toUid: rec.uid,
       toName: rec.name,
@@ -228,14 +248,17 @@ class _DeliveryWizardState extends State<DeliveryWizard> {
     );
     try {
       await _db.addDelivery(d, allIds, rec.uid);
-      TelegramService.send('تسليم جديد\nإلى: ' +
-          rec.name +
-          '\nالقيمة: ' +
-          _total().toStringAsFixed(0) +
-          ' ر.ي');
+      TelegramService.send(
+        'تسليم جديد\nإلى: ' +
+            rec.name +
+            '\nالقيمة: ' +
+            _total().toStringAsFixed(0) +
+            ' ر.ي',
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم حفظ التسليم وتوليد المديونية')));
+        const SnackBar(content: Text('تم حفظ التسليم وتوليد المديونية')),
+      );
       setState(() {
         _items
           ..clear()
@@ -243,10 +266,13 @@ class _DeliveryWizardState extends State<DeliveryWizard> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text(
-            'فشل حفظ التسليم؛ لم يتم تثبيت الحركة. تحقق من المخزون والاتصال.'),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'فشل حفظ التسليم؛ لم يتم تثبيت الحركة. تحقق من المخزون والاتصال.',
+          ),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -256,8 +282,14 @@ class _DeliveryWizardState extends State<DeliveryWizard> {
 class _BatchInfo {
   final String id, name, categoryKey;
   final int inStock, firstSerial, count;
-  _BatchInfo(this.id, this.name, this.categoryKey, this.inStock,
-      this.firstSerial, this.count);
+  _BatchInfo(
+    this.id,
+    this.name,
+    this.categoryKey,
+    this.inStock,
+    this.firstSerial,
+    this.count,
+  );
 }
 
 class _Item {
@@ -286,19 +318,20 @@ class _ItemEditor extends StatefulWidget {
   final double Function(CategoryConfig) pagePrice;
   final VoidCallback onChanged;
   final VoidCallback? onRemove;
-  const _ItemEditor(
-      {super.key,
-      required this.item,
-      required this.cats,
-      required this.batchId,
-      required this.batchFirstSerial,
-      required this.batchCount,
-      required this.holderUid,
-      required this.modeForCategory,
-      required this.unitPrice,
-      required this.pagePrice,
-      required this.onChanged,
-      this.onRemove});
+  const _ItemEditor({
+    super.key,
+    required this.item,
+    required this.cats,
+    required this.batchId,
+    required this.batchFirstSerial,
+    required this.batchCount,
+    required this.holderUid,
+    required this.modeForCategory,
+    required this.unitPrice,
+    required this.pagePrice,
+    required this.onChanged,
+    this.onRemove,
+  });
 
   @override
   State<_ItemEditor> createState() => _ItemEditorState();
@@ -313,20 +346,24 @@ class _ItemEditorState extends State<_ItemEditor> {
     if (widget.batchId == null || widget.item.cat == null) return;
     try {
       final list = await DbService().inStockCards(
-          widget.batchId!, widget.item.cat!.key, widget.holderUid);
+        widget.batchId!,
+        widget.item.cat!.key,
+        widget.holderUid,
+      );
       widget.item.allSerials = list.map((e) => e['serial'] as int).toList();
       widget.item.cardIdsBySerial
         ..clear()
         ..addEntries(
-            list.map((e) => MapEntry(e['serial'] as int, e['id'] as String)));
+          list.map((e) => MapEntry(e['serial'] as int, e['id'] as String)),
+        );
       _loaded = true;
       if (mounted) setState(() {});
     } catch (_) {
       _loaded = false;
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('تعذر تحميل كروت هذه الدفعة'),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذر تحميل كروت هذه الدفعة')),
+        );
       }
     }
   }
@@ -350,8 +387,9 @@ class _ItemEditorState extends State<_ItemEditor> {
       it.amount = it.selectedPages.length * widget.pagePrice(it.cat!);
       it.cardIds = [];
       for (final p in it.selectedPages) {
-        it.cardIds
-            .addAll(_pages[p].map((s) => it.cardIdsBySerial[s]!).toList());
+        it.cardIds.addAll(
+          _pages[p].map((s) => it.cardIdsBySerial[s]!).toList(),
+        );
       }
     } else {
       it.amount = it.chosenSerials.length * widget.unitPrice(it.cat!);
@@ -374,8 +412,9 @@ class _ItemEditorState extends State<_ItemEditor> {
         controller.dispose();
       }
       _manual.clear();
-      _manual
-          .addAll(next.map((s) => TextEditingController(text: s.toString())));
+      _manual.addAll(
+        next.map((s) => TextEditingController(text: s.toString())),
+      );
       _recalc();
     });
   }
@@ -387,8 +426,9 @@ class _ItemEditorState extends State<_ItemEditor> {
     if (next.isEmpty) return;
     setState(() {
       widget.item.chosenSerials.addAll(next);
-      _manual
-          .addAll(next.map((s) => TextEditingController(text: s.toString())));
+      _manual.addAll(
+        next.map((s) => TextEditingController(text: s.toString())),
+      );
       _recalc();
     });
   }
@@ -411,47 +451,57 @@ class _ItemEditorState extends State<_ItemEditor> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [
-              Expanded(
-                child: InitialDropdownFormField<CategoryConfig>(
-                  initialValue: it.cat,
-                  decoration: const InputDecoration(labelText: 'الفئة'),
-                  items: widget.cats
-                      .map((c) =>
-                          DropdownMenuItem(value: c, child: Text(c.label)))
-                      .toList(),
-                  onChanged: (v) {
-                    setState(() {
-                      it.cat = v;
-                      it.mode = v == null ? 'pages' : widget.modeForCategory(v);
-                      it.selectedPages.clear();
-                      it.chosenSerials.clear();
-                      it.cardIdsBySerial.clear();
-                      it.cardIds.clear();
-                      it.amount = 0;
-                    });
-                    for (final controller in _manual) {
-                      controller.dispose();
-                    }
-                    _manual.clear();
-                    _loaded = false;
-                    _loadSerials().then((_) => _recalc());
-                  },
+            Row(
+              children: [
+                Expanded(
+                  child: InitialDropdownFormField<CategoryConfig>(
+                    initialValue: it.cat,
+                    decoration: const InputDecoration(labelText: 'الفئة'),
+                    items: widget.cats
+                        .map(
+                          (c) =>
+                              DropdownMenuItem(value: c, child: Text(c.label)),
+                        )
+                        .toList(),
+                    onChanged: (v) {
+                      setState(() {
+                        it.cat = v;
+                        it.mode =
+                            v == null ? 'pages' : widget.modeForCategory(v);
+                        it.selectedPages.clear();
+                        it.chosenSerials.clear();
+                        it.cardIdsBySerial.clear();
+                        it.cardIds.clear();
+                        it.amount = 0;
+                      });
+                      for (final controller in _manual) {
+                        controller.dispose();
+                      }
+                      _manual.clear();
+                      _loaded = false;
+                      _loadSerials().then((_) => _recalc());
+                    },
+                  ),
                 ),
-              ),
-              IconButton(
+                IconButton(
                   icon: const Icon(Icons.delete_outline),
-                  onPressed: widget.onRemove),
-            ]),
+                  onPressed: widget.onRemove,
+                ),
+              ],
+            ),
             if (it.cat != null)
-              Text(it.mode == 'pages'
-                  ? 'طريقة التسليم: بالصفحات'
-                  : 'طريقة التسليم: بالكروت'),
+              Text(
+                it.mode == 'pages'
+                    ? 'طريقة التسليم: بالصفحات'
+                    : 'طريقة التسليم: بالكروت',
+              ),
             const SizedBox(height: 8),
             if (it.mode == 'pages') _pagesMode() else _cardsMode(),
             if (it.cat != null)
-              Text('القيمة: ' + it.amount.toStringAsFixed(0) + ' ر.ي',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'القيمة: ' + it.amount.toStringAsFixed(0) + ' ر.ي',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
           ],
         ),
       ),
@@ -461,72 +511,90 @@ class _ItemEditorState extends State<_ItemEditor> {
   Widget _pagesMode() {
     if (!_loaded)
       return const Padding(
-          padding: EdgeInsets.all(8), child: Text('جارٍ تحميل الصفحات...'));
+        padding: EdgeInsets.all(8),
+        child: Text('جارٍ تحميل الصفحات...'),
+      );
     final pages = _pages;
     if (pages.isEmpty)
       return const Text('لا يوجد مخزون متاح لهذه الفئة في هذه الدفعة');
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('الصفحات المتاحة (' + pages.length.toString() + '):'),
-      ...List.generate(pages.length, (i) {
-        final sel = widget.item.selectedPages.contains(i);
-        return CheckboxListTile(
-          dense: true,
-          value: sel,
-          title: Text('صفحة تبدأ من تسلسل ' +
-              pages[i].first.toString() +
-              ' (' +
-              pages[i].length.toString() +
-              ' كرت)'),
-          onChanged: (_) => setState(() {
-            sel
-                ? widget.item.selectedPages.remove(i)
-                : widget.item.selectedPages.add(i);
-            widget.item.selectedPages.sort();
-            _recalc();
-          }),
-        );
-      }),
-      if (widget.item.selectedPages.isNotEmpty)
-        Text('المختارة: ' +
-            widget.item.selectedPages
-                .map((i) => 'صفحة من ' + pages[i].first.toString())
-                .join(' ، ')),
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('الصفحات المتاحة (' + pages.length.toString() + '):'),
+        ...List.generate(pages.length, (i) {
+          final sel = widget.item.selectedPages.contains(i);
+          return CheckboxListTile(
+            dense: true,
+            value: sel,
+            title: Text(
+              'صفحة تبدأ من تسلسل ' +
+                  pages[i].first.toString() +
+                  ' (' +
+                  pages[i].length.toString() +
+                  ' كرت)',
+            ),
+            onChanged: (_) => setState(() {
+              sel
+                  ? widget.item.selectedPages.remove(i)
+                  : widget.item.selectedPages.add(i);
+              widget.item.selectedPages.sort();
+              _recalc();
+            }),
+          );
+        }),
+        if (widget.item.selectedPages.isNotEmpty)
+          Text(
+            'المختارة: ' +
+                widget.item.selectedPages
+                    .map((i) => 'صفحة من ' + pages[i].first.toString())
+                    .join(' ، '),
+          ),
+      ],
+    );
   }
 
   Widget _cardsMode() {
-    return Column(children: [
-      Row(children: [
-        Expanded(
-          child: TextField(
-            controller: _serialCtrl,
-            keyboardType: TextInputType.number,
-            decoration:
-                const InputDecoration(labelText: 'أدخل الرقم التسلسلي الأول'),
-          ),
-        ),
-        const SizedBox(width: 8),
-        FilledButton(onPressed: _autofill, child: const Text('توليد +4')),
-      ]),
-      const SizedBox(height: 8),
-      ...List.generate(_manual.length, (i) {
-        return Row(children: [
-          Expanded(
-            child: TextField(
-              controller: _manual[i],
-              keyboardType: TextInputType.number,
-              decoration:
-                  InputDecoration(labelText: 'كرت ' + (i + 1).toString()),
-              readOnly: true,
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _serialCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'أدخل الرقم التسلسلي الأول',
+                ),
+              ),
             ),
-          ),
-        ]);
-      }),
-      if (_manual.isNotEmpty)
-        TextButton.icon(
+            const SizedBox(width: 8),
+            FilledButton(onPressed: _autofill, child: const Text('توليد +4')),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ...List.generate(_manual.length, (i) {
+          return Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _manual[i],
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'كرت ' + (i + 1).toString(),
+                  ),
+                  readOnly: true,
+                ),
+              ),
+            ],
+          );
+        }),
+        if (_manual.isNotEmpty)
+          TextButton.icon(
             icon: const Icon(Icons.add),
             label: const Text('إضافة 5 كروت تالية'),
-            onPressed: _addFive),
-    ]);
+            onPressed: _addFive,
+          ),
+      ],
+    );
   }
 }

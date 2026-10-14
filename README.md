@@ -14,12 +14,14 @@
 - [x] إنشاء دفعات كروت يدويًا وربط كل كرت بمعرّف مستند Firestore
 - [x] تسليم المخزون من المدير للوكيل ومن الوكيل لنقطة البيع
 - [x] حساب المديونية وتسجيل السداد
-- [x] اختبارات الحساب المالي وبناء APK عبر GitHub Actions
+- [x] سجل تسليمات المدير، وتسجيل بيع الكروت بأرقام منفردة أو نطاقات
+- [x] مزامنة حالة User Manager للقراءة فقط عبر RouterOS API
+- [x] اختبارات الحساب المالي والتحقق من ترجمة ملفات التطبيق وبناء APK عبر GitHub Actions
 
 ## ما لم يُنفذ بعد
 
 - استيراد ملفات PDF تلقائيًا: غير موجود في الملفات الحالية؛ إنشاء الدفعات يدوي.
-- الاتصال الفعلي بواجهة RouterOS وقراءة حالة الكروت: الخدمة الحالية مجرد إعدادات/هيكل أولي.
+- الاتصال الحي بالراوتر لم يُختبر من بيئة التطوير؛ يلزم اختباره على شبكة الراوتر قبل الاعتماد عليه.
 - قواعد Firestore الإنتاجية: يجب إعدادها والتحقق منها قبل استخدام بيانات حقيقية.
 
 ---
@@ -36,8 +38,9 @@
 - Package name: `com.fastnet.fastnet_app`
 - اترك SHA-1 فارغًا واضغط Register
 
-5. انسخ القيم الخمس من **SDK setup and configuration** والصقها في
-`lib/firebase_options.dart` مكان PASTE_...
+5. يتضمن `lib/firebase_options.dart` إعداد مشروع `fast-net2` الموجود في النسخة
+المرفقة. إذا استخدمت مشروع Firebase مختلفًا، أعد توليد الإعدادات لتطبيق Android
+باسم الحزمة `com.fastnet.fastnet_app` بدل استبدال القيم عشوائيًا.
 6. Firestore Database → Create database → **Production mode** → أقرب region
 
 ### 2) أمان Firestore
@@ -66,16 +69,21 @@
 4. عند الانتهاء: قسم **Artifacts** → حمّل `FastNet-APK` → الملف `app-release.apk`
 5. انقله لجوالك وثبّته (اسمح بالتثبيت من مصادر غير معروفة)
 
-### 5) حساب الـ API للراوتر (للمرحلة الثانية — أنشئه الآن)
+### 5) حساب API للراوتر (اختياري)
 
-في Terminal للراوتر:
+أنشئ مستخدمًا مستقلًا للقراءة فقط، بسياسة `read,api` دون `write` أو `policy`.
+إذا لم تكن مجموعة `fastnet-read` موجودة، أنشئها أولًا من Winbox أو Terminal، ثم أضف المستخدم:
 
 ```javascript
+/user group add name=fastnet-read policy=read,api
 /user add name=fastnetapi group=fastnet-read password=كلمة_قوية_جدا comment="FastNet App read-only"
 ```
 
-- المجموعة `fastnet-read` موجودة أصلًا في إعداداتك بصلاحيات `read,api` فقط
-- الاتصال بالراوتر من التطبيق سيقتصر على حساب المدير فقط
+- إذا كانت المجموعة موجودة، لا تنشئها مرة أخرى؛ تحقق من أن صلاحياتها `read,api` فقط.
+- فعّل خدمة API على المنفذ 8728، واسمح بها من شبكة LAN موثوقة فقط أو عبر VPN.
+- **لا تفتح المنفذ 8728 على الإنترنت.** اتصال RouterOS API هنا غير مشفّر، وكلمة المرور تحفظ محليًا في تفضيلات التطبيق غير المشفّرة. استخدم كلمة مرور مخصصة وقوية.
+- شاشة الراوتر متاحة للمدير. الاتصال يقرأ أسماء مستخدمي User Manager ويطابقها مع معرّفات مستندات الكروت في Firestore.
+- المزامنة تكتب `um_used` و`um_profile` في Firestore؛ لذلك يجب أن تسمح قواعد Firestore للمدير بتحديث هذه الحقول. لم أضع قواعد مفتوحة أو غير مختبرة.
 
 ---
 
@@ -87,7 +95,7 @@
 | settings | uid المدير | categories[], lowStockThreshold |
 | batches | تلقائي | managerUid, name, categoryKey, firstSerial, count, createdAt |
 | cards | username | batchId, categoryKey, serial, status(inStock/delivered/sold), holderUid |
-| deliveries | تلقائي | fromUid, toUid, batchId, side(mg/ag), items[], totalAmount |
+| deliveries | تلقائي | managerUid (للتسليمات الجديدة), fromUid, toUid, batchId, side(mg/ag), items[], totalAmount |
 | payments | تلقائي | fromUid, toUid, amount, note |
 
 ## مبدأ العمل دون اتصال

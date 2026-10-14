@@ -17,8 +17,10 @@ class _LoadingPageState extends State<LoadingPage> {
   @override
   void initState() {
     super.initState();
-    _t =
-        Timer(const Duration(seconds: 15), () => setState(() => _stuck = true));
+    _t = Timer(
+      const Duration(seconds: 15),
+      () => setState(() => _stuck = true),
+    );
   }
 
   @override
@@ -32,15 +34,19 @@ class _LoadingPageState extends State<LoadingPage> {
     return Scaffold(
       body: Center(
         child: _stuck
-            ? Column(mainAxisSize: MainAxisSize.min, children: [
-                const Text(
-                    'تعذر تحميل الحساب. تحقق من الإنترنت وإعدادات Firestore.'),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: () => context.read<AuthService>().signOut(),
-                  child: const Text('تسجيل الخروج والمحاولة مجددًا'),
-                ),
-              ])
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'تعذر تحميل الحساب. تحقق من الإنترنت وإعدادات Firestore.',
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: () => context.read<AuthService>().signOut(),
+                    child: const Text('تسجيل الخروج والمحاولة مجددًا'),
+                  ),
+                ],
+              )
             : const CircularProgressIndicator(),
       ),
     );
