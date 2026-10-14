@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/calculator.dart';
+import '../../core/initial_dropdown_form_field.dart';
 import '../../models/app_user.dart';
 import '../../models/category_config.dart';
 import '../../models/delivery.dart';
@@ -107,8 +108,8 @@ class _DeliveryWizardState extends State<DeliveryWizard> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        DropdownButtonFormField<String>(
-          value: _batchId,
+        InitialDropdownFormField<String>(
+          initialValue: _batchId,
           decoration: const InputDecoration(labelText: 'الدفعة'),
           items: _batches
               .map((b) => DropdownMenuItem(
@@ -128,8 +129,8 @@ class _DeliveryWizardState extends State<DeliveryWizard> {
           }),
         ),
         const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          value: _recipientUid,
+        InitialDropdownFormField<String>(
+          initialValue: _recipientUid,
           decoration: InputDecoration(
               labelText: widget.side == 'mg'
                   ? 'الوكيل المستلم'
@@ -412,8 +413,8 @@ class _ItemEditorState extends State<_ItemEditor> {
           children: [
             Row(children: [
               Expanded(
-                child: DropdownButtonFormField<CategoryConfig>(
-                  value: it.cat,
+                child: InitialDropdownFormField<CategoryConfig>(
+                  initialValue: it.cat,
                   decoration: const InputDecoration(labelText: 'الفئة'),
                   items: widget.cats
                       .map((c) =>

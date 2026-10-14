@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/initial_dropdown_form_field.dart';
 import '../../../models/settings_model.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/db_service.dart';
@@ -46,8 +47,8 @@ class BatchesPage extends StatelessWidget {
             TextField(
                 controller: nameCtrl,
                 decoration: const InputDecoration(labelText: 'اسم الدفعة')),
-            DropdownButtonFormField<String>(
-              value: cat,
+            InitialDropdownFormField<String>(
+              initialValue: cat,
               decoration: const InputDecoration(labelText: 'الفئة'),
               items: s.categories
                   .map((c) =>
