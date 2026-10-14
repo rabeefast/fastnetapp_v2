@@ -82,7 +82,7 @@ class PdfCardImportService {
       final counts = <int>[];
       final seenUsernames = <String>{};
       for (final page in document.pages) {
-        final pageText = await page.loadText();
+        final pageText = await page.loadStructuredText();
         final pageRecords = parsePageText(
           pageText,
           pageHeight: page.height,

@@ -8,23 +8,21 @@ import '../lib/services/pdf_card_import_service.dart';
 void main() {
   const service = PdfCardImportService();
 
-  PdfPageTextFragment token(String value, double x, double top) {
+  _CardTextFragment token(String value, double x, double top) {
     final characterRects = [
       for (var i = 0; i < value.length; i++)
         PdfRect(x + i * 5, top, x + (i + 1) * 5, top - 10),
     ];
-    return PdfPageTextFragment.fromParams(
-      0,
-      value.length,
-      PdfRect(x, top, x + value.length * 5, top - 10),
-      value,
-      characterRects,
+    return _CardTextFragment(
+      text: value,
+      bounds: PdfRect(x, top, x + value.length * 5, top - 10),
+      charRects: characterRects,
     );
   }
 
   group('PDF card pairing', () {
     test('pairs usernames and serials left-to-right on each page row', () {
-      final fragments = <PdfPageTextFragment>[
+      final fragments = <_CardTextFragment>[
         token('12345678', 10, 810),
         token('23456789', 200, 810),
         token('34567890', 400, 810),
@@ -38,7 +36,7 @@ void main() {
         token('601005', 300, 746),
         token('601006', 500, 746),
       ];
-      final pageText = _FakePageText(
+      final pageText = _pageText(
         pageNumber: 3,
         fragments: fragments,
       );
@@ -70,7 +68,7 @@ void main() {
     });
 
     test('normalizes Arabic-Indic digits without losing leading zeroes', () {
-      final pageText = _FakePageText(
+      final pageText = _pageText(
         pageNumber: 1,
         fragments: [
           token('٠١٢٣٤٥٦٧', 10, 810),
@@ -89,7 +87,7 @@ void main() {
     });
 
     test('rejects rows where a username cannot be matched to a serial', () {
-      final pageText = _FakePageText(
+      final pageText = _pageText(
         pageNumber: 2,
         fragments: [
           token('12345678', 10, 810),
@@ -127,15 +125,53 @@ void main() {
   }
 }
 
-class _FakePageText extends PdfPageText {
-  @override
-  final int pageNumber;
+class _CardTextFragment {
+  final String text;
+  final PdfRect bounds;
+  final List<PdfRect> charRects;
 
-  @override
-  final List<PdfPageTextFragment> fragments;
+  const _CardTextFragment({
+    required this.text,
+    required this.bounds,
+    required this.charRects,
+  });
+}
 
-  _FakePageText({required this.pageNumber, required this.fragments});
+PdfPageText _pageText({
+  required int pageNumber,
+  required List<_CardTextFragment> fragments,
+}) {
+  final fullText = fragments.map((fragment) => fragment.text).join(' ');
+  final fullTextRects = <PdfRect>[];
+  for (var i = 0; i < fragments.length; i++) {
+    fullTextRects.addAll(fragments[i].charRects);
+    if (i + 1 < fragments.length) fullTextRects.add(PdfRect.empty);
+  }
 
-  @override
-  String get fullText => fragments.map((fragment) => fragment.text).join(' ');
+  final owner = PdfPageText(
+    pageNumber: pageNumber,
+    fullText: fullText,
+    charRects: fullTextRects,
+    fragments: const [],
+  );
+  var index = 0;
+  final pdfFragments = fragments.map((fragment) {
+    final result = PdfPageTextFragment(
+      pageText: owner,
+      index: index,
+      length: fragment.text.length,
+      bounds: fragment.bounds,
+      charRects: fragment.charRects,
+      direction: PdfTextDirection.ltr,
+    );
+    index += fragment.text.length + 1;
+    return result;
+  }).toList();
+
+  return PdfPageText(
+    pageNumber: pageNumber,
+    fullText: fullText,
+    charRects: fullTextRects,
+    fragments: pdfFragments,
+  );
 }
