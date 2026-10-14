@@ -138,14 +138,13 @@ class PdfCardImportService {
         if (length < 1 || length > 14) continue;
 
         final charRects = fragment.charRects;
-        final tokenRects = charRects != null &&
-                match.end <= charRects.length &&
-                match.start < match.end
-            ? charRects
-                .sublist(match.start, match.end)
-                .where((rect) => rect.isNotEmpty)
-                .toList()
-            : <PdfRect>[];
+        final tokenRects =
+            match.end <= charRects.length && match.start < match.end
+                ? charRects
+                    .sublist(match.start, match.end)
+                    .where((rect) => rect.isNotEmpty)
+                    .toList()
+                : <PdfRect>[];
         final rect = tokenRects.isEmpty ? fragment.bounds : _union(tokenRects);
         if (rect.isEmpty) continue;
         final centerY = (rect.top + rect.bottom) / 2;
