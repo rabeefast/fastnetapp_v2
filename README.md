@@ -1,9 +1,9 @@
-# Fast Net — تطبيق إدارة بطاقات الإنترنت (المرحلة الأولى)
+# Fast Net — تطبيق إدارة بطاقات الإنترنت
 
 نظام لإدارة بطاقات User Manager (المخزون على disk1 داخل الراوتر RB1100Dx4)
 وحركتها بين المدير والوكلاء ونقاط البيع بالأجل، مع مزامنة سحابية وتليجرام.
 
-## ما تتضمنه هذه المرحلة
+## الوظائف الموجودة في هذه النسخة
 
 - [x] الدخول بالبريد/كلمة المرور عبر Firebase Auth (أول حساب يدخل = المدير)
 - [x] فصل الأدوار: مدير / وكيل / نقطة بيع
@@ -11,10 +11,16 @@
 - [x] تسعيرة المسارين (مدير←وكيل / وكيل←نقطة بيع) قابلة للتعديل بالكامل من الإعدادات
 - [x] حجم الصفحة وعدد المجاني بعدها مرنان (الحساب المالي هو المرجع)
 - [x] حد تنبيه انخفاض المخزون + ربط تليجرام (توكن على جهاز المدير فقط) + رسالة اختبار
-- [x] محرك الحساب المالي + اختباراته (flutter test)
-- [x] بناء APK تلقائي عبر GitHub Actions
+- [x] إنشاء دفعات كروت يدويًا وربط كل كرت بمعرّف مستند Firestore
+- [x] تسليم المخزون من المدير للوكيل ومن الوكيل لنقطة البيع
+- [x] حساب المديونية وتسجيل السداد
+- [x] اختبارات الحساب المالي وبناء APK عبر GitHub Actions
 
-## المرحلة الثانية (تالية): استيراد PDF + تدفق التسليم + المديونيات والسداد + قراءة الراوتر
+## ما لم يُنفذ بعد
+
+- استيراد ملفات PDF تلقائيًا: غير موجود في الملفات الحالية؛ إنشاء الدفعات يدوي.
+- الاتصال الفعلي بواجهة RouterOS وقراءة حالة الكروت: الخدمة الحالية مجرد إعدادات/هيكل أولي.
+- قواعد Firestore الإنتاجية: يجب إعدادها والتحقق منها قبل استخدام بيانات حقيقية.
 
 ---
 
@@ -34,29 +40,12 @@
 `lib/firebase_options.dart` مكان PASTE_...
 6. Firestore Database → Create database → **Production mode** → أقرب region
 
-### 2) قواعد أمان Firestore (Firestore Database → Rules → انشر)
+### 2) أمان Firestore
 
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
-    match /users/{uid} {
-      allow read: if signedIn() && (request.auth.uid == uid);
-      allow create: if signedIn() && request.auth.uid == uid;
-      allow update, delete: if false;
-    }
-    match /settings/{uid} {
-      allow read, write: if request.auth.uid == uid;
-    }
-    match /{doc=**} {
-      allow read, write: if signedIn();
-    }
-  }
-}
-```
-
-> هذه قواعد مرحلة أولى عملية (الحسابات كلها يوزعها المدير). تشديدها أكثر يأتي لاحقًا.
+لا تستخدم قاعدة عامة من نوع `allow read, write: if request.auth != null`؛ فهي تسمح
+لكل مستخدم مسجل بقراءة وتعديل بيانات جميع الحسابات والمخزون والمديونيات. يلزم نشر
+قواعد تقصر الوصول حسب الدور والملكية قبل تشغيل التطبيق على بيانات حقيقية. لم أضع
+قواعد غير مختبرة قد تمنح صلاحيات أوسع أو تمنع التطبيق من العمل.
 
 ### 3) إنشاء حسابات الوكلاء ونقاط البيع
 
@@ -96,7 +85,7 @@ service cloud.firestore {
 | --- | --- | --- |
 | users | uid | name, role(manager/agent/pos), phone, parentUid |
 | settings | uid المدير | categories[], lowStockThreshold |
-| batches | تلقائي | managerUid, name(من تاريخ الاستيراد + قابل للتعديل), createdAt |
+| batches | تلقائي | managerUid, name, categoryKey, firstSerial, count, createdAt |
 | cards | username | batchId, categoryKey, serial, status(inStock/delivered/sold), holderUid |
 | deliveries | تلقائي | fromUid, toUid, batchId, side(mg/ag), items[], totalAmount |
 | payments | تلقائي | fromUid, toUid, amount, note |
