@@ -7,9 +7,49 @@ import '../../../core/initial_dropdown_form_field.dart';
 import '../../../models/settings_model.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/db_service.dart';
+import 'batch_cards_page.dart';
+import 'pdf_batch_import_page.dart';
 
 class BatchesPage extends StatelessWidget {
   const BatchesPage({super.key});
+
+  Future<void> _importPdf(BuildContext context, String uid) async {
+    final SettingsModel settings;
+    try {
+      settings = await DbService().loadSettings(uid);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذر تحميل الفئات من Firestore.')),
+        );
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    if (settings.categories.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('أضف فئة واحدة على الأقل من الإعدادات أولًا.'),
+        ),
+      );
+      return;
+    }
+    final imported = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PdfBatchImportPage(
+          managerUid: uid,
+          categories: settings.categories,
+        ),
+      ),
+    );
+    if (context.mounted && imported == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم استيراد الدفعة. افتحها لمراجعة جدول الكروت.'),
+        ),
+      );
+    }
+  }
 
   Future<void> _newBatch(BuildContext context, String uid) async {
     final SettingsModel s;
@@ -131,7 +171,9 @@ class BatchesPage extends StatelessWidget {
                           saving = false;
                           error = e is StateError
                               ? 'بعض أرقام الكروت مستخدمة مسبقًا؛ غيّر رقم البداية.'
-                              : 'تعذر إنشاء الدفعة. تحقق من الإنترنت والصلاحيات ثم أعد المحاولة.';
+                              : e is ArgumentError
+                                  ? e.message.toString()
+                                  : 'تعذر إنشاء الدفعة. تحقق من الإنترنت والصلاحيات ثم أعد المحاولة.';
                         });
                       }
                     },
@@ -161,39 +203,85 @@ class BatchesPage extends StatelessWidget {
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: DbService().batchesOf(uid),
         builder: (_, s) {
+          if (s.hasError) {
+            return const Center(child: Text('تعذر تحميل الدفعات.'));
+          }
           if (!s.hasData)
             return const Center(child: CircularProgressIndicator());
           final docs = s.data!.docs;
           if (docs.isEmpty)
-            return const Center(child: Text('لا توجد دفعات بعد'));
+            return const Center(
+              child: Text('لا توجد دفعات بعد؛ استورد ملفات PDF من الزر أدناه.'),
+            );
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: docs.length,
             itemBuilder: (_, i) {
+              final batchId = docs[i].id;
               final d = docs[i].data();
+              final categoryNames = (d['categoryLabels'] as List<dynamic>?)
+                      ?.map((value) => value.toString())
+                      .toList() ??
+                  [
+                    (d['categoryKey'] ?? 'فئات متعددة').toString(),
+                  ];
+              final count = (d['count'] as num?)?.toInt() ?? 0;
+              final pageCount = (d['pageCount'] as num?)?.toInt() ?? 0;
+              final importStatus = d['importStatus']?.toString() ?? 'ready';
               return Card(
                 child: ListTile(
                   leading: const Icon(Icons.inventory_2),
-                  title: Text(d['name'] ?? ''),
-                  subtitle: Text(
-                    'الفئة: ' +
-                        (d['categoryKey'] ?? '') +
-                        ' - من تسلسل ' +
-                        (d['firstSerial']?.toString() ?? '') +
-                        ' - ' +
-                        (d['count']?.toString() ?? '') +
-                        ' كرت',
+                  title: Text(
+                    importStatus == 'importing'
+                        ? '${d['name'] ?? ''} — جارٍ الاستيراد'
+                        : (d['name'] ?? '').toString(),
                   ),
+                  subtitle: Text(
+                    'الفئات: ${categoryNames.join('، ')} · $count كرت'
+                    '${pageCount > 0 ? ' · $pageCount صفحة' : ''}'
+                    '${d['fileCount'] != null ? ' · ${d['fileCount']} ملف' : ''}',
+                  ),
+                  trailing: importStatus == 'importing'
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.chevron_left),
+                  onTap: importStatus == 'importing'
+                      ? null
+                      : () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => BatchCardsPage(
+                                batchId: batchId,
+                                batchName: (d['name'] ?? '').toString(),
+                              ),
+                            ),
+                          ),
                 ),
               );
             },
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _newBatch(context, uid),
-        icon: const Icon(Icons.add),
-        label: const Text('دفعة جديدة'),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.small(
+            heroTag: 'manual-batch',
+            tooltip: 'إنشاء دفعة يدويًا',
+            onPressed: () => _newBatch(context, uid),
+            child: const Icon(Icons.add),
+          ),
+          const SizedBox(height: 8),
+          FloatingActionButton.extended(
+            heroTag: 'pdf-import-batch',
+            onPressed: () => _importPdf(context, uid),
+            icon: const Icon(Icons.picture_as_pdf),
+            label: const Text('استيراد PDF'),
+          ),
+        ],
       ),
     );
   }

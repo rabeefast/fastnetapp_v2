@@ -17,14 +17,25 @@ class ManagerShell extends StatefulWidget {
 
 class _ManagerShellState extends State<ManagerShell> {
   int _index = 0;
-  final _pages = const [
-    DashboardPage(),
-    DeliveriesPage(),
-    BatchesPage(),
-    AccountsPage(),
-    HistoryPage(),
-    SettingsPage(),
-  ];
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      DashboardPage(onNavigate: _navigate),
+      const DeliveriesPage(),
+      const BatchesPage(),
+      const AccountsPage(),
+      const HistoryPage(),
+      const SettingsPage(),
+    ];
+  }
+
+  void _navigate(int index) {
+    if (index < 0 || index >= _pages.length) return;
+    setState(() => _index = index);
+  }
 
   @override
   Widget build(BuildContext context) {

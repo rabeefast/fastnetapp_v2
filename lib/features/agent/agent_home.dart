@@ -5,6 +5,7 @@ import '../../models/app_user.dart';
 import '../../models/settings_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/db_service.dart';
+import '../auth/biometric_settings.dart';
 import '../delivery/delivery_wizard.dart';
 
 class AgentHome extends StatelessWidget {
@@ -18,6 +19,15 @@ class AgentHome extends StatelessWidget {
       appBar: AppBar(
         title: Text('فاست نت - ' + me.name),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.fingerprint),
+            tooltip: 'الأمان والبصمة',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const BiometricSettingsPage(),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => context.read<AuthService>().signOut(),

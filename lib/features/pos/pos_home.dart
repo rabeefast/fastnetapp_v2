@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/auth_service.dart';
 import '../../services/db_service.dart';
+import '../auth/biometric_settings.dart';
 import '../sale/sale_dialog.dart';
 
 class PosHome extends StatefulWidget {
@@ -23,6 +24,15 @@ class _PosHomeState extends State<PosHome> {
       appBar: AppBar(
         title: Text('فاست نت - ${me.name}'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.fingerprint),
+            tooltip: 'الأمان والبصمة',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const BiometricSettingsPage(),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => context.read<AuthService>().signOut(),

@@ -6,6 +6,7 @@ import '../../../models/settings_model.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/telegram_service.dart';
 import '../../../state/app_state.dart';
+import '../../auth/biometric_settings.dart';
 import 'router_page.dart';
 
 /// إعدادات المدير: الفئات (العدد + الأسماء) والأسعار للمسارين،
@@ -88,6 +89,8 @@ class _SettingsPageState extends State<SettingsPage> {
             const SizedBox(height: 16),
             _buildRouterSection(),
             const SizedBox(height: 16),
+            _buildBiometricSection(),
+            const SizedBox(height: 16),
             _buildThresholdSection(),
             const SizedBox(height: 16),
             _buildTelegramSection(),
@@ -119,6 +122,18 @@ class _SettingsPageState extends State<SettingsPage> {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildBiometricSection() {
+    final uid = context.read<AuthService>().user!.uid;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('الأمان', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 8),
+        BiometricSettingsCard(uid: uid),
+      ],
     );
   }
 

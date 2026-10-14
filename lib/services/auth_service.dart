@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/app_user.dart';
+import 'biometric_service.dart';
 
 class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -119,9 +120,26 @@ class AuthService extends ChangeNotifier {
     try {
       final u = _auth.currentUser;
       if (u != null) {
-        profile = await _fetchOrCreateProfile(u);
-        if (profile == null) {
+        final restoredProfile = await _fetchOrCreateProfile(u);
+        if (restoredProfile == null) {
           await _auth.signOut();
+        } else if (await BiometricService.isEnabled(u.uid)) {
+          if (!await BiometricService.canUseBiometrics()) {
+            // Do not permanently lock out a user if a fingerprint was removed
+            // or the device no longer reports biometric hardware.
+            await BiometricService.setEnabled(u.uid, false);
+            profile = restoredProfile;
+          } else if (await BiometricService.authenticate(
+            'افتح تطبيق فاست نت بالبصمة',
+          )) {
+            profile = restoredProfile;
+          } else {
+            // Firebase credentials are never stored by this feature. A
+            // cancelled/failed biometric returns the app to normal sign-in.
+            await _auth.signOut();
+          }
+        } else {
+          profile = restoredProfile;
         }
         notifyListeners();
       }

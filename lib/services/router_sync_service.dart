@@ -24,6 +24,7 @@ class RouterSyncService {
         .get();
     var total = 0, matched = 0, used = 0;
     for (final b in batches.docs) {
+      if (b.data()['importStatus'] == 'importing') continue;
       final cards =
           await _db.collection('cards').where('batchId', isEqualTo: b.id).get();
       var i = 0;
@@ -34,12 +35,15 @@ class RouterSyncService {
           final doc = cards.docs[i];
           total++;
           final attrs = um[doc.id];
-          if (attrs == null) continue;
-          matched++;
-          final profile = attrs['actual-profile'] ?? '';
+          if (attrs != null) matched++;
+          final profile = attrs?['actual-profile'] ?? '';
           final isUsed = profile.isNotEmpty && profile != 'null';
-          if (isUsed) used++;
-          w.update(doc.reference, {'um_used': isUsed, 'um_profile': profile});
+          if (attrs != null && isUsed) used++;
+          w.update(doc.reference, {
+            'um_found': attrs != null,
+            'um_used': attrs != null && isUsed,
+            'um_profile': profile,
+          });
         }
         await w.commit();
       }
