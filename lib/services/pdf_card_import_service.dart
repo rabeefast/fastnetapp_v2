@@ -82,7 +82,7 @@ class PdfCardImportService {
       final counts = <int>[];
       final seenUsernames = <String>{};
       for (final page in document.pages) {
-        final pageText = await page.loadStructuredText();
+        final pageText = await page.loadText();
         final pageRecords = parsePageText(
           pageText,
           pageHeight: page.height,
@@ -138,13 +138,14 @@ class PdfCardImportService {
         if (length < 1 || length > 14) continue;
 
         final charRects = fragment.charRects;
-        final tokenRects =
-            match.end <= charRects.length && match.start < match.end
-                ? charRects
-                    .sublist(match.start, match.end)
-                    .where((rect) => rect.isNotEmpty)
-                    .toList()
-                : <PdfRect>[];
+        final tokenRects = charRects != null &&
+                match.end <= charRects.length &&
+                match.start < match.end
+            ? charRects
+                .sublist(match.start, match.end)
+                .where((rect) => rect.isNotEmpty)
+                .toList()
+            : <PdfRect>[];
         final rect = tokenRects.isEmpty ? fragment.bounds : _union(tokenRects);
         if (rect.isEmpty) continue;
         final centerY = (rect.top + rect.bottom) / 2;
