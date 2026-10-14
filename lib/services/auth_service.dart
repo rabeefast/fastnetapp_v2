@@ -18,7 +18,7 @@ class AuthService extends ChangeNotifier {
       final p = await _fetchOrCreateProfile(cred.user!);
       if (p == null) {
         await _auth.signOut();
-        return 'هذا الحساب غير مسجل في النظام. اسأل المدير عن إضافته.';
+        return 'هذا الحساب غير مسجل في النظام.';
       }
       profile = p;
       notifyListeners();
@@ -35,10 +35,10 @@ class AuthService extends ChangeNotifier {
         case 'network-request-failed':
           return 'لا يوجد اتصال بالإنترنت';
         default:
-          return 'خطأ في الدخول: ${e.code}';
+          return 'خطأ في الدخول: ' + e.code;
       }
     } catch (e) {
-      return 'خطأ غير متوقع: $e';
+      return 'تعذر الاتصال بالخادم. تحقق من الإنترنت وإعدادات Firestore.';
     }
   }
 
@@ -47,7 +47,10 @@ class AuthService extends ChangeNotifier {
     if (doc.exists) {
       return AppUser.fromMap(u.uid, doc.data()!);
     }
-    // أول حساب يدخل النظام يصبح المدير (bootstrap) — بعده لا يُقبل إلا من أنشأه المدير
+    final req = await _db.collection('requests').doc(u.uid).get();
+    if (req.exists && req.data()?['status'] == 'pending') {
+      throw Exception('PENDING');
+    }
     final mgr = await _db
         .collection('users')
         .where('role', isEqualTo: 'manager')
@@ -62,6 +65,42 @@ class AuthService extends ChangeNotifier {
     return null;
   }
 
+  /// طلب حساب جديد (وكيل / نقطة بيع) من داخل التطبيق
+  Future<String?> signUpRequest({
+    required String name,
+    required String phone,
+    required String email,
+    required String password,
+    required String role,
+  }) async {
+    try {
+      final cred = await _auth.createUserWithEmailAndPassword(
+          email: email.trim(), password: password);
+      await _db.collection('requests').doc(cred.user!.uid).set({
+        'name': name,
+        'phone': phone,
+        'role': role,
+        'status': 'pending',
+        'createdAt': DateTime.now().millisecondsSinceEpoch,
+      });
+      await _auth.signOut();
+      return null;
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'email-already-in-use':
+          return 'هذا البريد مسجل مسبقًا';
+        case 'weak-password':
+          return 'كلمة المرور ضعيفة (6 أحرف فأكثر)';
+        case 'invalid-email':
+          return 'البريد الإلكتروني غير صالح';
+        default:
+          return 'خطأ: ' + e.code;
+      }
+    } catch (e) {
+      return 'تعذر إنشاء الطلب. حاول لاحقًا.';
+    }
+  }
+
   Future<void> signOut() async {
     profile = null;
     await _auth.signOut();
@@ -69,13 +108,15 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> restore() async {
-    final u = _auth.currentUser;
-    if (u != null) {
-      final doc = await _db.collection('users').doc(u.uid).get();
-      if (doc.exists) {
-        profile = AppUser.fromMap(u.uid, doc.data()!);
-        notifyListeners();
+    try {
+      final u = _auth.currentUser;
+      if (u != null) {
+        final doc = await _db.collection('users').doc(u.uid).get();
+        if (doc.exists) {
+          profile = AppUser.fromMap(u.uid, doc.data()!);
+          notifyListeners();
+        }
       }
-    }
+    } catch (_) {}
   }
 }

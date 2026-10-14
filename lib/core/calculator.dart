@@ -32,9 +32,5 @@ class DeliveryCalculator {
   }
 
   /// عدد الكروت المجانية المستحقة لعدد صفحات معين
-  static int freeCardsFor(CategoryConfig c, int pages) {
-    // Free cards apply only when at least one delivery path is priced by page.
-    if (pages <= 0 || (c.mgMode != 'page' && c.agMode != 'page')) return 0;
-    return pages * c.freePerPage;
-  }
+  static int freeCardsFor(CategoryConfig c, int pages) => pages * c.freePerPage;
 }

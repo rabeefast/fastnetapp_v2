@@ -26,7 +26,7 @@ class TelegramService {
     if (t == null || t.isEmpty || c == null || c.isEmpty) return false;
     try {
       final res = await http.post(
-        Uri.parse('https://api.telegram.org/bot$t/sendMessage'),
+        Uri.parse('https://api.telegram.org/bot' + t + '/sendMessage'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'chat_id': c, 'text': text, 'parse_mode': 'HTML'}),
       );
@@ -36,5 +36,5 @@ class TelegramService {
     }
   }
 
-  static Future<bool> sendTest() => send('✅ <b>Fast Net</b>\nتم ربط التليجرام بنجاح.');
+  static Future<bool> sendTest() => send('تم ربط التليجرام بنجاح');
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/auth_service.dart';
@@ -68,6 +69,11 @@ class _LoginPageState extends State<LoginPage> {
                       ? const SizedBox(height: 20, width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2))
                       : const Text('دخول'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: () => context.go('/signup'),
+                  child: const Text('ليس لديك حساب؟ اطلب حساب وكيل / نقطة بيع'),
                 ),
               ],
             ),
