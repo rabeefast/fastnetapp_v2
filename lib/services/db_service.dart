@@ -10,6 +10,10 @@ import 'pdf_card_import_service.dart';
 
 /// طبقة الوصول لقاعدة Firestore (عمل دون اتصال مدمج عبر المكتبة).
 class DbService {
+  // Keep each PDF-import transaction small: large batches hold hundreds of
+  // Firestore snapshots while reading and can stall or exhaust older phones.
+  static const int _pdfImportChunkSize = 100;
+
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   CollectionReference<Map<String, dynamic>> get users =>
@@ -195,8 +199,8 @@ class DbService {
     }
 
     final records = files.expand((file) => file.cards).toList();
-    if (records.isEmpty || records.length > 10000) {
-      throw ArgumentError('عدد الكروت يجب أن يكون بين 1 و10000');
+    if (records.isEmpty || records.length > maxPdfImportCardsPerBatch) {
+      throw ArgumentError('عدد الكروت يجب أن يكون بين 1 و7000');
     }
     final seen = <String>{};
     for (final record in records) {
@@ -244,9 +248,9 @@ class DbService {
       await batchRef.set(batchData);
       var completed = 0;
       while (completed < records.length) {
-        final end = (completed + 400 > records.length)
+        final end = (completed + _pdfImportChunkSize > records.length)
             ? records.length
-            : completed + 400;
+            : completed + _pdfImportChunkSize;
         final group = records.sublist(completed, end);
         attemptedIds.addAll(group.map((record) => record.username));
         await _db.runTransaction((transaction) async {

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -52,7 +54,7 @@ class _PdfBatchImportPageState extends State<PdfBatchImportPage> {
       type: FileType.custom,
       allowedExtensions: const ['pdf'],
       allowMultiple: true,
-      withData: true,
+      withData: false,
     );
     if (selection == null || selection.files.isEmpty) return;
 
@@ -74,15 +76,33 @@ class _PdfBatchImportPageState extends State<PdfBatchImportPage> {
       final parsedFiles = <_PdfSelection>[];
       var cardCount = 0;
       for (final file in selection.files) {
-        final bytes = file.bytes;
-        if (bytes == null) {
-          throw FormatException('تعذر قراءة الملف ${file.name} من الجهاز.');
-        }
-        final parsed = await _parser.parse(bytes: bytes, fileName: file.name);
-        cardCount += parsed.cards.length;
-        if (cardCount > 10000) {
+        if (cardCount >= maxPdfImportCardsPerBatch) {
           throw const FormatException(
-            'تتجاوز الملفات 10000 كرت. قسّمها إلى دفعتين أو أكثر.',
+            'الحد الأقصى للاستيراد في دفعة واحدة هو 7000 كرت. '
+            'قسّم الملفات إلى دفعتين أو أكثر.',
+          );
+        }
+        var bytes = file.bytes;
+        if (bytes == null) {
+          final path = file.path;
+          if (path == null) {
+            throw FormatException('تعذر قراءة الملف ${file.name} من الجهاز.');
+          }
+          try {
+            bytes = await File(path).readAsBytes();
+          } catch (_) {
+            throw FormatException('تعذر فتح الملف ${file.name} من الجهاز.');
+          }
+        }
+        final parsed = await _parser.parse(
+          bytes: bytes,
+          fileName: file.name,
+          maxCards: maxPdfImportCardsPerBatch - cardCount,
+        );
+        cardCount += parsed.cards.length;
+        if (cardCount > maxPdfImportCardsPerBatch) {
+          throw const FormatException(
+            'تتجاوز الملفات 7000 كرت. قسّمها إلى دفعتين أو أكثر.',
           );
         }
         parsedFiles.add(
@@ -156,7 +176,7 @@ class _PdfBatchImportPageState extends State<PdfBatchImportPage> {
       _nameController.text.trim().isNotEmpty &&
       _files.every((file) => file.categoryKey != null) &&
       _duplicateCount == 0 &&
-      _totalCards <= 10000;
+      _totalCards <= maxPdfImportCardsPerBatch;
 
   Future<void> _import() async {
     if (!_canImport) return;
@@ -279,7 +299,7 @@ class _PdfBatchImportPageState extends State<PdfBatchImportPage> {
             const SizedBox(height: 8),
             Text(
               _completedCards == 0
-                  ? 'جارٍ التحقق من عدم وجود أسماء مستخدمين سابقة...'
+                  ? 'جارٍ فحص الأسماء وحفظ الدفعة على أجزاء صغيرة...'
                   : 'تم حفظ $_completedCards من $_totalCards كرت',
             ),
           ],

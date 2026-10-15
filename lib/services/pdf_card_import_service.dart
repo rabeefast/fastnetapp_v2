@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import 'package:pdfrx/pdfrx.dart';
 
+const int maxPdfImportCardsPerBatch = 7000;
+
 /// One extracted card. The username remains a string because it is the exact
 /// User Manager key and may contain leading zeroes.
 class PdfCardRecord {
@@ -59,6 +61,7 @@ class PdfCardImportService {
   Future<ParsedPdfCards> parse({
     required Uint8List bytes,
     required String fileName,
+    int maxCards = maxPdfImportCardsPerBatch,
   }) async {
     if (bytes.length < 5 ||
         String.fromCharCodes(bytes.sublist(0, 4)) != '%PDF') {
@@ -66,6 +69,11 @@ class PdfCardImportService {
     }
     if (bytes.length > maxFileBytes) {
       throw const FormatException('حجم ملف PDF يتجاوز الحد المسموح (20 MB).');
+    }
+    if (maxCards < 1 || maxCards > maxPdfImportCardsPerBatch) {
+      throw const FormatException(
+        'الحد الأقصى للاستيراد في دفعة واحدة هو 7000 كرت.',
+      );
     }
 
     PdfDocument? document;
@@ -88,6 +96,12 @@ class PdfCardImportService {
           pageHeight: page.height,
           fileName: fileName,
         );
+        if (records.length + pageRecords.length > maxCards) {
+          throw const FormatException(
+            'الحد الأقصى للاستيراد في دفعة واحدة هو 7000 كرت. '
+            'قسّم الملفات إلى دفعتين أو أكثر.',
+          );
+        }
         if (pageRecords.isEmpty) {
           throw FormatException(
             'لم يتم العثور على بطاقات قابلة للقراءة في الصفحة ${page.pageNumber}. '
