@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pdfrx/pdfrx.dart';
@@ -7,6 +8,22 @@ import '../lib/services/pdf_card_import_service.dart';
 
 void main() {
   const service = PdfCardImportService();
+
+  test(
+    'rejects a requested card limit outside 1..7000 before parsing',
+    () async {
+      for (final invalidLimit in [0, maxPdfImportCardsPerBatch + 1]) {
+        await expectLater(
+          service.parse(
+            bytes: Uint8List.fromList('%PDF-1.4'.codeUnits),
+            fileName: 'limit-check.pdf',
+            maxCards: invalidLimit,
+          ),
+          throwsA(isA<FormatException>()),
+        );
+      }
+    },
+  );
 
   _CardTextFragment token(String value, double x, double top) {
     final characterRects = [

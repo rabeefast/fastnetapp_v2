@@ -254,12 +254,15 @@ class DbService {
         final group = records.sublist(completed, end);
         attemptedIds.addAll(group.map((record) => record.username));
         await _db.runTransaction((transaction) async {
-          final refs =
-              group.map((record) => cards.doc(record.username)).toList();
-          final existing = <DocumentSnapshot<Map<String, dynamic>>>[];
-          for (final ref in refs) {
-            existing.add(await transaction.get(ref));
-          }
+          final refs = group
+              .map((record) => cards.doc(record.username))
+              .toList();
+          // Fetch the chunk concurrently instead of awaiting each method-
+          // channel read in sequence. This reduces the long "checking names"
+          // pause on phones while keeping all reads inside the transaction.
+          final existing = await Future.wait(
+            refs.map((ref) => transaction.get(ref)),
+          );
           if (existing.any((doc) => doc.exists)) {
             throw StateError(
               'يوجد اسم مستخدم موجود مسبقًا في التطبيق؛ لم يتم استبدال أي كرت.',
