@@ -215,7 +215,8 @@ class _PdfBatchImportPageState extends State<PdfBatchImportPage> {
         _saving = false;
         _error = error is StateError || error is ArgumentError
             ? error.toString().replaceFirst('Bad state: ', '')
-            : 'تعذر حفظ الدفعة. تحقق من الإنترنت وصلاحيات Firestore؛ '
+            : 'تعذر حفظ الدفعة. استيراد PDF يحتاج اتصالًا فعّالًا بالإنترنت '
+                'وصلاحية الوصول إلى Firestore؛ '
                 'لن تُعرض أي دفعة غير مكتملة.';
       });
     }

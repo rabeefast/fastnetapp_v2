@@ -10,9 +10,11 @@ import 'pdf_card_import_service.dart';
 
 /// طبقة الوصول لقاعدة Firestore (عمل دون اتصال مدمج عبر المكتبة).
 class DbService {
-  // Keep each PDF-import transaction small: large batches hold hundreds of
-  // Firestore snapshots while reading and can stall or exhaust older phones.
-  static const int _pdfImportChunkSize = 100;
+  // Firestore transactions are capped at 500 writes. Keep room for the batch
+  // metadata document in the first transaction, while letting common imports
+  // (including 255-card PDFs) commit atomically instead of leaving a stranded
+  // "importing" batch if the app is interrupted.
+  static const int _pdfImportChunkSize = 400;
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
@@ -240,33 +242,45 @@ class DbService {
       'pageCount': pageCount,
       'count': records.length,
       'createdAt': now,
-      'importStatus': 'importing',
     };
 
     final attemptedIds = <String>[];
     try {
-      await batchRef.set(batchData);
       var completed = 0;
       while (completed < records.length) {
         final end = (completed + _pdfImportChunkSize > records.length)
             ? records.length
             : completed + _pdfImportChunkSize;
         final group = records.sublist(completed, end);
+        final isFirstChunk = completed == 0;
+        final isLastChunk = end == records.length;
         attemptedIds.addAll(group.map((record) => record.username));
         await _db.runTransaction((transaction) async {
           final refs = group
               .map((record) => cards.doc(record.username))
               .toList();
-          // Fetch the chunk concurrently instead of awaiting each method-
-          // channel read in sequence. This reduces the long "checking names"
-          // pause on phones while keeping all reads inside the transaction.
-          final existing = await Future.wait(
-            refs.map((ref) => transaction.get(ref)),
-          );
+          // Keep transaction reads serial. A Transaction is a single mutable
+          // operation context; concurrent method-channel reads against the same
+          // transaction can fail on some FlutterFire/Android combinations.
+          final existing = <DocumentSnapshot<Map<String, dynamic>>>[];
+          for (final ref in refs) {
+            existing.add(await transaction.get(ref));
+          }
           if (existing.any((doc) => doc.exists)) {
             throw StateError(
               'يوجد اسم مستخدم موجود مسبقًا في التطبيق؛ لم يتم استبدال أي كرت.',
             );
+          }
+          // Create the batch header in the same transaction as the first card
+          // writes. If the device is offline or this transaction fails, there
+          // is no orphan "importing" document left in Firestore.
+          if (isFirstChunk) {
+            transaction.set(batchRef, {
+              ...batchData,
+              'importStatus': isLastChunk ? 'ready' : 'importing',
+            });
+          } else if (isLastChunk) {
+            transaction.update(batchRef, {'importStatus': 'ready'});
           }
           for (var i = 0; i < group.length; i++) {
             final record = group[i];
@@ -288,7 +302,6 @@ class DbService {
         onProgress?.call(completed, records.length);
       }
 
-      await batchRef.update({'importStatus': 'ready'});
       return batchRef.id;
     } catch (_) {
       // Only remove records that still belong to this import. This also
