@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -39,6 +40,7 @@ class _PdfBatchImportPageState extends State<PdfBatchImportPage> {
   String? _error;
   bool _parsing = false;
   bool _saving = false;
+  int _checkedCards = 0;
   int _completedCards = 0;
   int _totalCards = 0;
 
@@ -182,6 +184,7 @@ class _PdfBatchImportPageState extends State<PdfBatchImportPage> {
     if (!_canImport) return;
     setState(() {
       _saving = true;
+      _checkedCards = 0;
       _completedCards = 0;
       _error = null;
     });
@@ -198,6 +201,14 @@ class _PdfBatchImportPageState extends State<PdfBatchImportPage> {
         files: _files.map((file) => file.parsed).toList(),
         categoryByFile: categoryByFile,
         categoryLabelByKey: categoryLabelByKey,
+        onCheckProgress: (checked, total) {
+          if (mounted) {
+            setState(() {
+              _checkedCards = checked;
+              _totalCards = total;
+            });
+          }
+        },
         onProgress: (completed, total) {
           if (mounted) {
             setState(() {
@@ -215,9 +226,12 @@ class _PdfBatchImportPageState extends State<PdfBatchImportPage> {
         _saving = false;
         _error = error is StateError || error is ArgumentError
             ? error.toString().replaceFirst('Bad state: ', '')
-            : 'تعذر حفظ الدفعة. استيراد PDF يحتاج اتصالًا فعّالًا بالإنترنت '
-                'وصلاحية الوصول إلى Firestore؛ '
-                'لن تُعرض أي دفعة غير مكتملة.';
+            : error is FirebaseException
+                ? 'Firestore: ${error.code}'
+                    '${error.message == null ? '' : ' — ${error.message}'}'
+                : 'تعذر حفظ الدفعة. استيراد PDF يحتاج اتصالًا فعّالًا بالإنترنت '
+                    'وصلاحية الوصول إلى Firestore؛ '
+                    'لن تُعرض أي دفعة غير مكتملة.';
       });
     }
   }
@@ -295,12 +309,22 @@ class _PdfBatchImportPageState extends State<PdfBatchImportPage> {
             LinearProgressIndicator(
               value: _totalCards == 0
                   ? null
-                  : (_completedCards / _totalCards).clamp(0.0, 1.0).toDouble(),
+                  : _completedCards > 0
+                      ? (0.5 + 0.5 * _completedCards / _totalCards)
+                          .clamp(0.0, 1.0)
+                          .toDouble()
+                      : (0.5 * _checkedCards / _totalCards)
+                          .clamp(0.0, 0.5)
+                          .toDouble(),
             ),
             const SizedBox(height: 8),
             Text(
               _completedCards == 0
-                  ? 'جارٍ فحص الأسماء وحفظ الدفعة على أجزاء صغيرة...'
+                  ? _checkedCards == 0
+                      ? 'جارٍ الاتصال بقاعدة البيانات وفحص الأسماء...'
+                      : _checkedCards < _totalCards
+                          ? 'تم فحص $_checkedCards من $_totalCards اسمًا...'
+                          : 'تم فحص الأسماء؛ جارٍ حفظ الكروت...'
                   : 'تم حفظ $_completedCards من $_totalCards كرت',
             ),
           ],

@@ -15,6 +15,8 @@ class DbService {
   // (including 255-card PDFs) commit atomically instead of leaving a stranded
   // "importing" batch if the app is interrupted.
   static const int _pdfImportChunkSize = 400;
+  static const int _pdfImportLookupSize = 30;
+  static const int _pdfImportLookupQueriesPerWave = 8;
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
@@ -180,6 +182,7 @@ class DbService {
     required List<ParsedPdfCards> files,
     required Map<String, String> categoryByFile,
     required Map<String, String> categoryLabelByKey,
+    void Function(int checked, int total)? onCheckProgress,
     void Function(int completed, int total)? onProgress,
   }) async {
     if (name.trim().isEmpty || files.isEmpty) {
@@ -246,6 +249,47 @@ class DbService {
 
     final attemptedIds = <String>[];
     try {
+      // Query existing document IDs in bounded server-side groups. A
+      // Transaction.get only accepts one DocumentReference, so sequentially
+      // checking hundreds of usernames can leave the app waiting for a minute.
+      // Source.server also prevents an offline cache from pretending the
+      // duplicate check succeeded.
+      var checked = 0;
+      final lookupWaveSize =
+          _pdfImportLookupSize * _pdfImportLookupQueriesPerWave;
+      while (checked < records.length) {
+        final waveEnd = (checked + lookupWaveSize > records.length)
+            ? records.length
+            : checked + lookupWaveSize;
+        final queries = <Future<QuerySnapshot<Map<String, dynamic>>>>[];
+        final queryLengths = <int>[];
+        for (var start = checked; start < waveEnd; start += _pdfImportLookupSize) {
+          final end = (start + _pdfImportLookupSize > waveEnd)
+              ? waveEnd
+              : start + _pdfImportLookupSize;
+          final usernames = records
+              .sublist(start, end)
+              .map((record) => record.username)
+              .toList();
+          queries.add(
+            cards
+                .where(FieldPath.documentId, whereIn: usernames)
+                .get(const GetOptions(source: Source.server)),
+          );
+          queryLengths.add(usernames.length);
+        }
+        final snapshots = await Future.wait(queries);
+        if (snapshots.any((snapshot) => snapshot.docs.isNotEmpty)) {
+          throw StateError(
+            'يوجد اسم مستخدم موجود مسبقًا في التطبيق؛ لم يتم استبدال أي كرت.',
+          );
+        }
+        for (final count in queryLengths) {
+          checked += count;
+        }
+        onCheckProgress?.call(checked, records.length);
+      }
+
       var completed = 0;
       while (completed < records.length) {
         final end = (completed + _pdfImportChunkSize > records.length)
@@ -255,49 +299,30 @@ class DbService {
         final isFirstChunk = completed == 0;
         final isLastChunk = end == records.length;
         attemptedIds.addAll(group.map((record) => record.username));
-        await _db.runTransaction((transaction) async {
-          final refs = group
-              .map((record) => cards.doc(record.username))
-              .toList();
-          // Keep transaction reads serial. A Transaction is a single mutable
-          // operation context; concurrent method-channel reads against the same
-          // transaction can fail on some FlutterFire/Android combinations.
-          final existing = <DocumentSnapshot<Map<String, dynamic>>>[];
-          for (final ref in refs) {
-            existing.add(await transaction.get(ref));
-          }
-          if (existing.any((doc) => doc.exists)) {
-            throw StateError(
-              'يوجد اسم مستخدم موجود مسبقًا في التطبيق؛ لم يتم استبدال أي كرت.',
-            );
-          }
-          // Create the batch header in the same transaction as the first card
-          // writes. If the device is offline or this transaction fails, there
-          // is no orphan "importing" document left in Firestore.
-          if (isFirstChunk) {
-            transaction.set(batchRef, {
-              ...batchData,
-              'importStatus': isLastChunk ? 'ready' : 'importing',
-            });
-          } else if (isLastChunk) {
-            transaction.update(batchRef, {'importStatus': 'ready'});
-          }
-          for (var i = 0; i < group.length; i++) {
-            final record = group[i];
-            final categoryKey = categoryByFile[record.fileName]!;
-            transaction.set(refs[i], {
-              'batchId': batchRef.id,
-              'categoryKey': categoryKey,
-              'categoryLabel': categoryLabelByKey[categoryKey] ?? categoryKey,
-              'serial': record.serial,
-              'pageNumber': record.pageNumber,
-              'sourcePdf': record.fileName,
-              'status': 'inStock',
-              'holderUid': managerUid,
-              'createdAt': now,
-            });
-          }
-        });
+        final writeBatch = _db.batch();
+        if (isFirstChunk) {
+          writeBatch.set(batchRef, {
+            ...batchData,
+            'importStatus': isLastChunk ? 'ready' : 'importing',
+          });
+        } else if (isLastChunk) {
+          writeBatch.update(batchRef, {'importStatus': 'ready'});
+        }
+        for (final record in group) {
+          final categoryKey = categoryByFile[record.fileName]!;
+          writeBatch.set(cards.doc(record.username), {
+            'batchId': batchRef.id,
+            'categoryKey': categoryKey,
+            'categoryLabel': categoryLabelByKey[categoryKey] ?? categoryKey,
+            'serial': record.serial,
+            'pageNumber': record.pageNumber,
+            'sourcePdf': record.fileName,
+            'status': 'inStock',
+            'holderUid': managerUid,
+            'createdAt': now,
+          });
+        }
+        await writeBatch.commit();
         completed = end;
         onProgress?.call(completed, records.length);
       }
@@ -331,7 +356,7 @@ class DbService {
           rollbackComplete = false;
         }
       }
-      if (rollbackComplete) {
+      if (rollbackComplete && attemptedIds.isNotEmpty) {
         try {
           await batchRef.delete();
         } catch (_) {
