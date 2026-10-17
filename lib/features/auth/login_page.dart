@@ -23,9 +23,9 @@ class _LoginPageState extends State<LoginPage> {
       _error = null;
     });
     final err = await context.read<AuthService>().signIn(
-          _email.text,
-          _pass.text,
-        );
+      _email.text,
+      _pass.text,
+    );
     if (mounted) {
       setState(() {
         _busy = false;
@@ -55,9 +55,9 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 24),
                 TextField(
                   controller: _email,
-                  keyboardType: TextInputType.emailAddress,
+                  keyboardType: TextInputType.text,
                   decoration: const InputDecoration(
-                    labelText: 'البريد الإلكتروني',
+                    labelText: 'رقم الهاتف أو البريد الإلكتروني',
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -86,13 +86,14 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 20),
                 FilledButton(
                   onPressed: _busy ? null : _login,
-                  child: _busy
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('دخول'),
+                  child:
+                      _busy
+                          ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : const Text('دخول'),
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton(

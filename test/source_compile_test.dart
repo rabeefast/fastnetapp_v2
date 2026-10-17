@@ -1,5 +1,6 @@
 import '../lib/core/calculator.dart' as calculator;
 import '../lib/core/initial_dropdown_form_field.dart' as dropdown_form_field;
+import '../lib/core/phone_auth_identifier.dart' as phone_auth_identifier;
 import '../lib/core/router.dart' as router;
 import '../lib/core/serial_parser.dart' as serial_parser;
 import '../lib/core/theme.dart' as theme;
@@ -54,6 +55,7 @@ void main() {
     expect(<Object?>[
       router.createRouter,
       dropdown_form_field.InitialDropdownFormField,
+      phone_auth_identifier.PhoneAuthIdentifier,
       theme.AppTheme,
       agent_home.AgentHome,
       loading_page.LoadingPage,
@@ -85,6 +87,6 @@ void main() {
       router_sync_service.RouterSyncService,
       telegram_service.TelegramService,
       app_state.AppState,
-    ], hasLength(33));
+    ], hasLength(34));
   });
 }

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+import '../core/phone_auth_identifier.dart';
 import '../models/app_user.dart';
 import 'biometric_service.dart';
 
@@ -12,10 +13,10 @@ class AuthService extends ChangeNotifier {
   User? get user => _auth.currentUser;
   AppUser? profile;
 
-  Future<String?> signIn(String email, String password) async {
+  Future<String?> signIn(String identifier, String password) async {
     try {
       final cred = await _auth.signInWithEmailAndPassword(
-        email: email.trim(),
+        email: PhoneAuthIdentifier.forLogin(identifier),
         password: password,
       );
       final p = await _fetchOrCreateProfile(cred.user!);
@@ -29,12 +30,12 @@ class AuthService extends ChangeNotifier {
     } on FirebaseAuthException catch (e) {
       switch (e.code) {
         case 'user-not-found':
-          return 'لا يوجد حساب بهذا البريد';
+          return 'لا يوجد حساب بهذا البريد أو رقم الهاتف';
         case 'wrong-password':
         case 'invalid-credential':
           return 'كلمة المرور غير صحيحة';
         case 'invalid-email':
-          return 'البريد الإلكتروني غير صالح';
+          return 'رقم الهاتف أو البريد الإلكتروني غير صالح';
         case 'network-request-failed':
           return 'لا يوجد اتصال بالإنترنت';
         default:
@@ -58,11 +59,12 @@ class AuthService extends ChangeNotifier {
     if (req.exists && req.data()?['status'] == 'pending') {
       throw Exception('PENDING');
     }
-    final mgr = await _db
-        .collection('users')
-        .where('role', isEqualTo: 'manager')
-        .limit(1)
-        .get();
+    final mgr =
+        await _db
+            .collection('users')
+            .where('role', isEqualTo: 'manager')
+            .limit(1)
+            .get();
     if (mgr.docs.isEmpty) {
       final name = u.email?.split('@').first ?? 'المدير';
       final p = AppUser(uid: u.uid, name: name, role: 'manager');
@@ -76,18 +78,26 @@ class AuthService extends ChangeNotifier {
   Future<String?> signUpRequest({
     required String name,
     required String phone,
-    required String email,
     required String password,
     required String role,
   }) async {
+    final normalizedPhone = PhoneAuthIdentifier.normalize(phone);
+    if (name.trim().isEmpty) return 'أدخل الاسم.';
+    if (normalizedPhone.length < 7 || normalizedPhone.length > 15) {
+      return 'أدخل رقم هاتف صحيحًا من 7 إلى 15 رقمًا.';
+    }
+    if (password.length < 6) return 'كلمة المرور ضعيفة (6 أحرف فأكثر).';
+    if (role != 'agent' && role != 'pos') {
+      return 'نوع الحساب غير صالح.';
+    }
     try {
       final cred = await _auth.createUserWithEmailAndPassword(
-        email: email.trim(),
+        email: PhoneAuthIdentifier.emailForPhone(phone),
         password: password,
       );
       await _db.collection('requests').doc(cred.user!.uid).set({
-        'name': name,
-        'phone': phone,
+        'name': name.trim(),
+        'phone': phone.trim(),
         'role': role,
         'status': 'pending',
         'createdAt': DateTime.now().millisecondsSinceEpoch,
@@ -97,11 +107,11 @@ class AuthService extends ChangeNotifier {
     } on FirebaseAuthException catch (e) {
       switch (e.code) {
         case 'email-already-in-use':
-          return 'هذا البريد مسجل مسبقًا';
+          return 'رقم الهاتف مسجل مسبقًا';
         case 'weak-password':
           return 'كلمة المرور ضعيفة (6 أحرف فأكثر)';
         case 'invalid-email':
-          return 'البريد الإلكتروني غير صالح';
+          return 'تعذر إنشاء بيانات الدخول لهذا الرقم.';
         default:
           return 'خطأ: ' + e.code;
       }

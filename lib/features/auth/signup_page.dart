@@ -13,7 +13,6 @@ class SignupPage extends StatefulWidget {
 class _SignupPageState extends State<SignupPage> {
   final _name = TextEditingController();
   final _phone = TextEditingController();
-  final _email = TextEditingController();
   final _pass = TextEditingController();
   String _role = 'agent';
   bool _busy = false;
@@ -23,7 +22,6 @@ class _SignupPageState extends State<SignupPage> {
   void dispose() {
     _name.dispose();
     _phone.dispose();
-    _email.dispose();
     _pass.dispose();
     super.dispose();
   }
@@ -34,12 +32,11 @@ class _SignupPageState extends State<SignupPage> {
       _error = null;
     });
     final err = await context.read<AuthService>().signUpRequest(
-          name: _name.text.trim(),
-          phone: _phone.text.trim(),
-          email: _email.text,
-          password: _pass.text,
-          role: _role,
-        );
+      name: _name.text.trim(),
+      phone: _phone.text.trim(),
+      password: _pass.text,
+      role: _role,
+    );
     if (mounted) {
       setState(() {
         _busy = false;
@@ -83,12 +80,6 @@ class _SignupPageState extends State<SignupPage> {
             controller: _phone,
             keyboardType: TextInputType.phone,
             decoration: const InputDecoration(labelText: 'رقم الجوال'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _email,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(labelText: 'البريد الإلكتروني'),
           ),
           const SizedBox(height: 12),
           TextField(

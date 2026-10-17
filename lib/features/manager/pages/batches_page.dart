@@ -10,6 +10,12 @@ import '../../../services/db_service.dart';
 import 'batch_cards_page.dart';
 import 'pdf_batch_import_page.dart';
 
+int _createdAtMillis(dynamic value) {
+  if (value is Timestamp) return value.millisecondsSinceEpoch;
+  if (value is num) return value.toInt();
+  return 0;
+}
+
 class BatchesPage extends StatelessWidget {
   const BatchesPage({super.key});
 
@@ -36,10 +42,11 @@ class BatchesPage extends StatelessWidget {
     }
     final imported = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => PdfBatchImportPage(
-          managerUid: uid,
-          categories: settings.categories,
-        ),
+        builder:
+            (_) => PdfBatchImportPage(
+              managerUid: uid,
+              categories: settings.categories,
+            ),
       ),
     );
     if (context.mounted && imported == true) {
@@ -85,103 +92,125 @@ class BatchesPage extends StatelessWidget {
     if (!context.mounted) return;
     final created = await showDialog<bool>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => AlertDialog(
-          title: Text(saving ? 'جارٍ إنشاء الدفعة...' : 'دفعة كروت جديدة'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'اسم الدفعة'),
-              ),
-              InitialDropdownFormField<String>(
-                initialValue: cat,
-                decoration: const InputDecoration(labelText: 'الفئة'),
-                items: s.categories
-                    .map(
-                      (c) =>
-                          DropdownMenuItem(value: c.key, child: Text(c.label)),
-                    )
-                    .toList(),
-                onChanged: (v) => setS(() => cat = v!),
-              ),
-              TextField(
-                controller: firstSerial,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'أول رقم تسلسلي'),
-              ),
-              TextField(
-                controller: count,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'عدد الكروت'),
-              ),
-              TextField(
-                controller: firstCard,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'أول رقم كرت (اسم المستخدم)',
-                ),
-              ),
-              if (error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    error!,
-                    style: TextStyle(color: Theme.of(ctx).colorScheme.error),
+      builder:
+          (ctx) => StatefulBuilder(
+            builder:
+                (ctx, setS) => AlertDialog(
+                  title: Text(
+                    saving ? 'جارٍ إنشاء الدفعة...' : 'دفعة كروت جديدة',
                   ),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: nameCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'اسم الدفعة',
+                        ),
+                      ),
+                      InitialDropdownFormField<String>(
+                        initialValue: cat,
+                        decoration: const InputDecoration(labelText: 'الفئة'),
+                        items:
+                            s.categories
+                                .map(
+                                  (c) => DropdownMenuItem(
+                                    value: c.key,
+                                    child: Text(c.label),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged: (v) => setS(() => cat = v!),
+                      ),
+                      TextField(
+                        controller: firstSerial,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'أول رقم تسلسلي',
+                        ),
+                      ),
+                      TextField(
+                        controller: count,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'عدد الكروت',
+                        ),
+                      ),
+                      TextField(
+                        controller: firstCard,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'أول رقم كرت (اسم المستخدم)',
+                        ),
+                      ),
+                      if (error != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            error!,
+                            style: TextStyle(
+                              color: Theme.of(ctx).colorScheme.error,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed:
+                          saving ? null : () => Navigator.pop(ctx, false),
+                      child: const Text('إلغاء'),
+                    ),
+                    FilledButton(
+                      onPressed:
+                          saving
+                              ? null
+                              : () async {
+                                final n = int.tryParse(count.text) ?? 0;
+                                final fs = int.tryParse(firstSerial.text) ?? 0;
+                                final fc = int.tryParse(firstCard.text) ?? 0;
+                                if (nameCtrl.text.trim().isEmpty ||
+                                    n < 1 ||
+                                    fs < 1 ||
+                                    fc < 1) {
+                                  setS(
+                                    () =>
+                                        error =
+                                            'أدخل اسمًا وأرقامًا موجبة صحيحة.',
+                                  );
+                                  return;
+                                }
+                                setS(() {
+                                  saving = true;
+                                  error = null;
+                                });
+                                try {
+                                  await DbService().createBatch(
+                                    managerUid: uid,
+                                    name: nameCtrl.text.trim(),
+                                    categoryKey: cat,
+                                    firstSerial: fs,
+                                    count: n,
+                                    firstCardNo: fc,
+                                  );
+                                  if (ctx.mounted) Navigator.pop(ctx, true);
+                                } catch (e) {
+                                  setS(() {
+                                    saving = false;
+                                    error =
+                                        e is StateError
+                                            ? 'بعض أرقام الكروت مستخدمة مسبقًا؛ غيّر رقم البداية.'
+                                            : e is ArgumentError
+                                            ? e.message.toString()
+                                            : 'تعذر إنشاء الدفعة. تحقق من الإنترنت والصلاحيات ثم أعد المحاولة.';
+                                  });
+                                }
+                              },
+                      child: Text(saving ? 'جارٍ الإنشاء...' : 'إنشاء'),
+                    ),
+                  ],
                 ),
-            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: saving ? null : () => Navigator.pop(ctx, false),
-              child: const Text('إلغاء'),
-            ),
-            FilledButton(
-              onPressed: saving
-                  ? null
-                  : () async {
-                      final n = int.tryParse(count.text) ?? 0;
-                      final fs = int.tryParse(firstSerial.text) ?? 0;
-                      final fc = int.tryParse(firstCard.text) ?? 0;
-                      if (nameCtrl.text.trim().isEmpty ||
-                          n < 1 ||
-                          fs < 1 ||
-                          fc < 1) {
-                        setS(() => error = 'أدخل اسمًا وأرقامًا موجبة صحيحة.');
-                        return;
-                      }
-                      setS(() {
-                        saving = true;
-                        error = null;
-                      });
-                      try {
-                        await DbService().createBatch(
-                          managerUid: uid,
-                          name: nameCtrl.text.trim(),
-                          categoryKey: cat,
-                          firstSerial: fs,
-                          count: n,
-                          firstCardNo: fc,
-                        );
-                        if (ctx.mounted) Navigator.pop(ctx, true);
-                      } catch (e) {
-                        setS(() {
-                          saving = false;
-                          error = e is StateError
-                              ? 'بعض أرقام الكروت مستخدمة مسبقًا؛ غيّر رقم البداية.'
-                              : e is ArgumentError
-                                  ? e.message.toString()
-                                  : 'تعذر إنشاء الدفعة. تحقق من الإنترنت والصلاحيات ثم أعد المحاولة.';
-                        });
-                      }
-                    },
-              child: Text(saving ? 'جارٍ الإنشاء...' : 'إنشاء'),
-            ),
-          ],
-        ),
-      ),
     );
     nameCtrl.dispose();
     firstSerial.dispose();
@@ -204,11 +233,22 @@ class BatchesPage extends StatelessWidget {
         stream: DbService().batchesOf(uid),
         builder: (_, s) {
           if (s.hasError) {
-            return const Center(child: Text('تعذر تحميل الدفعات.'));
+            final code =
+                s.error is FirebaseException
+                    ? (s.error! as FirebaseException).code
+                    : 'unknown';
+            return Center(
+              child: Text('تعذر تحميل الدفعات (رمز الخطأ: $code).'),
+            );
           }
-          if (!s.hasData)
+          if (!s.hasData) {
             return const Center(child: CircularProgressIndicator());
-          final docs = s.data!.docs;
+          }
+          final docs = [...s.data!.docs]..sort(
+            (a, b) => _createdAtMillis(
+              b.data()['createdAt'],
+            ).compareTo(_createdAtMillis(a.data()['createdAt'])),
+          );
           if (docs.isEmpty)
             return const Center(
               child: Text('لا توجد دفعات بعد؛ استورد ملفات PDF من الزر أدناه.'),
@@ -219,12 +259,11 @@ class BatchesPage extends StatelessWidget {
             itemBuilder: (_, i) {
               final batchId = docs[i].id;
               final d = docs[i].data();
-              final categoryNames = (d['categoryLabels'] as List<dynamic>?)
+              final categoryNames =
+                  (d['categoryLabels'] as List<dynamic>?)
                       ?.map((value) => value.toString())
                       .toList() ??
-                  [
-                    (d['categoryKey'] ?? 'فئات متعددة').toString(),
-                  ];
+                  [(d['categoryKey'] ?? 'فئات متعددة').toString()];
               final count = (d['count'] as num?)?.toInt() ?? 0;
               final pageCount = (d['pageCount'] as num?)?.toInt() ?? 0;
               final importStatus = d['importStatus']?.toString() ?? 'ready';
@@ -241,21 +280,24 @@ class BatchesPage extends StatelessWidget {
                     '${pageCount > 0 ? ' · $pageCount صفحة' : ''}'
                     '${d['fileCount'] != null ? ' · ${d['fileCount']} ملف' : ''}',
                   ),
-                  trailing: importStatus == 'importing'
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.chevron_left),
-                  onTap: importStatus == 'importing'
-                      ? null
-                      : () => Navigator.of(context).push(
+                  trailing:
+                      importStatus == 'importing'
+                          ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                          : const Icon(Icons.chevron_left),
+                  onTap:
+                      importStatus == 'importing'
+                          ? null
+                          : () => Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => BatchCardsPage(
-                                batchId: batchId,
-                                batchName: (d['name'] ?? '').toString(),
-                              ),
+                              builder:
+                                  (_) => BatchCardsPage(
+                                    batchId: batchId,
+                                    batchName: (d['name'] ?? '').toString(),
+                                  ),
                             ),
                           ),
                 ),

@@ -25,18 +25,21 @@ class DbService {
 
   // ---- الحسابات ----
   Future<List<AppUser>> childrenOf(String uid, String role) async {
-    final s = await users
-        .where('parentUid', isEqualTo: uid)
-        .where('role', isEqualTo: role)
-        .get();
+    final s =
+        await users
+            .where('parentUid', isEqualTo: uid)
+            .where('role', isEqualTo: role)
+            .get();
     return s.docs.map((d) => AppUser.fromMap(d.id, d.data())).toList();
   }
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> pendingRequests() => _db
-      .collection('requests')
-      .where('status', isEqualTo: 'pending')
-      .orderBy('createdAt', descending: true)
-      .snapshots();
+  // Keep the query to one filter: adding orderBy here requires a composite
+  // Firestore index. Sort the small pending-request list in the UI instead.
+  Stream<QuerySnapshot<Map<String, dynamic>>> pendingRequests() =>
+      _db
+          .collection('requests')
+          .where('status', isEqualTo: 'pending')
+          .snapshots();
 
   Future<void> approveRequest(
     String uid,
@@ -141,9 +144,10 @@ class DbService {
     } catch (_) {
       var rollbackComplete = true;
       for (var start = 0; start < attemptedIds.length; start += 200) {
-        final end = (start + 200 > attemptedIds.length)
-            ? attemptedIds.length
-            : start + 200;
+        final end =
+            (start + 200 > attemptedIds.length)
+                ? attemptedIds.length
+                : start + 200;
         try {
           final existing = await Future.wait(
             attemptedIds.sublist(start, end).map((id) => cards.doc(id).get()),
@@ -258,19 +262,26 @@ class DbService {
       final lookupWaveSize =
           _pdfImportLookupSize * _pdfImportLookupQueriesPerWave;
       while (checked < records.length) {
-        final waveEnd = (checked + lookupWaveSize > records.length)
-            ? records.length
-            : checked + lookupWaveSize;
+        final waveEnd =
+            (checked + lookupWaveSize > records.length)
+                ? records.length
+                : checked + lookupWaveSize;
         final queries = <Future<QuerySnapshot<Map<String, dynamic>>>>[];
         final queryLengths = <int>[];
-        for (var start = checked; start < waveEnd; start += _pdfImportLookupSize) {
-          final end = (start + _pdfImportLookupSize > waveEnd)
-              ? waveEnd
-              : start + _pdfImportLookupSize;
-          final usernames = records
-              .sublist(start, end)
-              .map((record) => record.username)
-              .toList();
+        for (
+          var start = checked;
+          start < waveEnd;
+          start += _pdfImportLookupSize
+        ) {
+          final end =
+              (start + _pdfImportLookupSize > waveEnd)
+                  ? waveEnd
+                  : start + _pdfImportLookupSize;
+          final usernames =
+              records
+                  .sublist(start, end)
+                  .map((record) => record.username)
+                  .toList();
           queries.add(
             cards
                 .where(FieldPath.documentId, whereIn: usernames)
@@ -292,9 +303,10 @@ class DbService {
 
       var completed = 0;
       while (completed < records.length) {
-        final end = (completed + _pdfImportChunkSize > records.length)
-            ? records.length
-            : completed + _pdfImportChunkSize;
+        final end =
+            (completed + _pdfImportChunkSize > records.length)
+                ? records.length
+                : completed + _pdfImportChunkSize;
         final group = records.sublist(completed, end);
         final isFirstChunk = completed == 0;
         final isLastChunk = end == records.length;
@@ -333,9 +345,10 @@ class DbService {
       // handles a timed-out commit whose server outcome was not reported.
       var rollbackComplete = true;
       for (var start = 0; start < attemptedIds.length; start += 200) {
-        final end = (start + 200 > attemptedIds.length)
-            ? attemptedIds.length
-            : start + 200;
+        final end =
+            (start + 200 > attemptedIds.length)
+                ? attemptedIds.length
+                : start + 200;
         final ids = attemptedIds.sublist(start, end);
         try {
           final existing = await Future.wait(
@@ -367,21 +380,23 @@ class DbService {
     }
   }
 
+  // Avoid requiring a composite index for managerUid + createdAt.
   Stream<QuerySnapshot<Map<String, dynamic>>> batchesOf(String managerUid) =>
       _db
           .collection('batches')
           .where('managerUid', isEqualTo: managerUid)
-          .orderBy('createdAt', descending: true)
           .snapshots();
 
   Future<List<Map<String, dynamic>>> cardsInBatch(String batchId) async {
-    final snapshot = await _db
-        .collection('cards')
-        .where('batchId', isEqualTo: batchId)
-        .get();
-    final cards = snapshot.docs
-        .map((doc) => <String, dynamic>{'username': doc.id, ...doc.data()})
-        .toList();
+    final snapshot =
+        await _db
+            .collection('cards')
+            .where('batchId', isEqualTo: batchId)
+            .get();
+    final cards =
+        snapshot.docs
+            .map((doc) => <String, dynamic>{'username': doc.id, ...doc.data()})
+            .toList();
     cards.sort((a, b) {
       final pageA = (a['pageNumber'] as num?)?.toInt() ?? 0;
       final pageB = (b['pageNumber'] as num?)?.toInt() ?? 0;
@@ -403,18 +418,20 @@ class DbService {
     if (batch.data()?['importStatus'] == 'importing') return [];
     final managerUid = batch.data()?['managerUid'] as String?;
     final cards = _db.collection('cards');
-    final inStock = await cards
-        .where('batchId', isEqualTo: batchId)
-        .where('categoryKey', isEqualTo: categoryKey)
-        .where('status', isEqualTo: 'inStock')
-        .get();
+    final inStock =
+        await cards
+            .where('batchId', isEqualTo: batchId)
+            .where('categoryKey', isEqualTo: categoryKey)
+            .where('status', isEqualTo: 'inStock')
+            .get();
     // يدعم كروت الوكيل/نقطة البيع التي أنشأتها النسخة السابقة.
-    final delivered = await cards
-        .where('batchId', isEqualTo: batchId)
-        .where('categoryKey', isEqualTo: categoryKey)
-        .where('status', isEqualTo: 'delivered')
-        .where('holderUid', isEqualTo: holderUid)
-        .get();
+    final delivered =
+        await cards
+            .where('batchId', isEqualTo: batchId)
+            .where('categoryKey', isEqualTo: categoryKey)
+            .where('status', isEqualTo: 'delivered')
+            .where('holderUid', isEqualTo: holderUid)
+            .get();
     final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[
       ...inStock.docs.where(
         (d) =>
@@ -423,11 +440,15 @@ class DbService {
       ),
       ...delivered.docs,
     ];
-    final list = docs
-        .map<Map<String, dynamic>>(
-          (d) => {'id': d.id, 'serial': (d.data()['serial'] as num).toInt()},
-        )
-        .toList();
+    final list =
+        docs
+            .map<Map<String, dynamic>>(
+              (d) => {
+                'id': d.id,
+                'serial': (d.data()['serial'] as num).toInt(),
+              },
+            )
+            .toList();
     list.sort((a, b) => (a['serial'] as int).compareTo(b['serial'] as int));
     return list;
   }
@@ -438,10 +459,11 @@ class DbService {
   Future<int> stockCount(String uid, String categoryKey) async {
     final owned = <String>{};
     final cards = _db.collection('cards');
-    final held = await cards
-        .where('holderUid', isEqualTo: uid)
-        .where('categoryKey', isEqualTo: categoryKey)
-        .get();
+    final held =
+        await cards
+            .where('holderUid', isEqualTo: uid)
+            .where('categoryKey', isEqualTo: categoryKey)
+            .get();
     for (final d in held.docs) {
       if (d.data()['status'] == 'inStock' ||
           d.data()['status'] == 'delivered') {
@@ -450,11 +472,12 @@ class DbService {
     }
 
     // A PDF batch stays hidden while chunked Firestore writes are in flight.
-    final batchIds = held.docs
-        .map((doc) => doc.data()['batchId'])
-        .whereType<String>()
-        .toSet()
-        .toList();
+    final batchIds =
+        held.docs
+            .map((doc) => doc.data()['batchId'])
+            .whereType<String>()
+            .toSet()
+            .toList();
     final batchSnapshots = await Future.wait(
       batchIds.map((id) => _db.collection('batches').doc(id).get()),
     );
@@ -467,17 +490,19 @@ class DbService {
     }
 
     // الكروت القديمة التي أُنشئت قبل إضافة holderUid تخص مدير الدفعة.
-    final batches = await _db
-        .collection('batches')
-        .where('managerUid', isEqualTo: uid)
-        .where('categoryKey', isEqualTo: categoryKey)
-        .get();
+    final batches =
+        await _db
+            .collection('batches')
+            .where('managerUid', isEqualTo: uid)
+            .where('categoryKey', isEqualTo: categoryKey)
+            .get();
     for (final batch in batches.docs) {
-      final legacy = await cards
-          .where('batchId', isEqualTo: batch.id)
-          .where('categoryKey', isEqualTo: categoryKey)
-          .where('status', isEqualTo: 'inStock')
-          .get();
+      final legacy =
+          await cards
+              .where('batchId', isEqualTo: batch.id)
+              .where('categoryKey', isEqualTo: categoryKey)
+              .where('status', isEqualTo: 'inStock')
+              .get();
       for (final card in legacy.docs) {
         if (card.data()['holderUid'] == null) owned.add(card.id);
       }
@@ -512,17 +537,19 @@ class DbService {
   Future<void> addPayment(Payment p) =>
       _db.collection('payments').doc(p.id).set(p.toMap());
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> deliveriesTo(String uid) => _db
-      .collection('deliveries')
-      .where('toUid', isEqualTo: uid)
-      .orderBy('createdAt', descending: true)
-      .snapshots();
+  Stream<QuerySnapshot<Map<String, dynamic>>> deliveriesTo(String uid) =>
+      _db
+          .collection('deliveries')
+          .where('toUid', isEqualTo: uid)
+          .orderBy('createdAt', descending: true)
+          .snapshots();
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> paymentsTo(String uid) => _db
-      .collection('payments')
-      .where('toUid', isEqualTo: uid)
-      .orderBy('createdAt', descending: true)
-      .snapshots();
+  Stream<QuerySnapshot<Map<String, dynamic>>> paymentsTo(String uid) =>
+      _db
+          .collection('payments')
+          .where('toUid', isEqualTo: uid)
+          .orderBy('createdAt', descending: true)
+          .snapshots();
 
   Future<double> debtOf(String uid) async {
     final dels =
@@ -553,13 +580,14 @@ class DbService {
 
     final snapshot =
         await _db.collection('cards').where('holderUid', isEqualTo: uid).get();
-    final targets = snapshot.docs.where((doc) {
-      final data = doc.data();
-      final serial = data['serial'];
-      return data['status'] == 'delivered' &&
-          serial is num &&
-          wanted.contains(serial.toInt());
-    }).toList();
+    final targets =
+        snapshot.docs.where((doc) {
+          final data = doc.data();
+          final serial = data['serial'];
+          return data['status'] == 'delivered' &&
+              serial is num &&
+              wanted.contains(serial.toInt());
+        }).toList();
 
     if (targets.length != wanted.length) {
       throw StateError('بعض الأرقام غير موجودة في مخزونك أو سبق بيعها');
@@ -594,10 +622,7 @@ class DbService {
         }
       }
       for (final doc in currentDocs) {
-        transaction.update(doc.reference, {
-          'status': 'sold',
-          'soldAt': soldAt,
-        });
+        transaction.update(doc.reference, {'status': 'sold', 'soldAt': soldAt});
       }
     });
     return targets.length;
@@ -613,10 +638,11 @@ class DbService {
 
     void emit() {
       final merged = <String, Map<String, dynamic>>{...legacy, ...current};
-      final items = merged.entries
-          .map((entry) => Delivery.fromMap(entry.key, entry.value))
-          .toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final items =
+          merged.entries
+              .map((entry) => Delivery.fromMap(entry.key, entry.value))
+              .toList()
+            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       if (!controller.isClosed) controller.add(items);
     }
 

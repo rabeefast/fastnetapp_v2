@@ -73,25 +73,47 @@ class DashboardPage extends StatelessWidget {
             const SizedBox(height: 8),
             StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: db.batchesOf(uid),
-              builder: (_, snapshot) => Card(
-                child: ListTile(
-                  leading: const Icon(Icons.inventory_2),
-                  title: const Text('الدفعات المستوردة'),
-                  subtitle: Text('${snapshot.data?.size ?? 0} دفعة'),
-                  onTap: () => onNavigate(2),
-                ),
-              ),
+              builder: (_, snapshot) {
+                final readyCount =
+                    snapshot.data?.docs.where((doc) {
+                      final status = doc.data()['importStatus']?.toString();
+                      return status == null || status == 'ready';
+                    }).length;
+                final batchCount = snapshot.data?.size;
+                final subtitle =
+                    snapshot.hasError
+                        ? 'تعذر التحميل (${snapshot.error is FirebaseException ? (snapshot.error! as FirebaseException).code : 'unknown'})'
+                        : snapshot.hasData
+                        ? '$batchCount دفعة · $readyCount مكتملة'
+                        : 'جارٍ التحميل...';
+                return Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.inventory_2),
+                    title: const Text('الدفعات المستوردة'),
+                    subtitle: Text(subtitle),
+                    onTap: () => onNavigate(2),
+                  ),
+                );
+              },
             ),
             StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: db.pendingRequests(),
-              builder: (_, snapshot) => Card(
-                child: ListTile(
-                  leading: const Icon(Icons.person_add),
-                  title: const Text('طلبات حسابات بانتظار الموافقة'),
-                  subtitle: Text('${snapshot.data?.size ?? 0} طلب'),
-                  onTap: () => onNavigate(3),
-                ),
-              ),
+              builder: (_, snapshot) {
+                final subtitle =
+                    snapshot.hasError
+                        ? 'تعذر التحميل (${snapshot.error is FirebaseException ? (snapshot.error! as FirebaseException).code : 'unknown'})'
+                        : snapshot.hasData
+                        ? '${snapshot.data!.size} طلب'
+                        : 'جارٍ التحميل...';
+                return Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.person_add),
+                    title: const Text('طلبات حسابات بانتظار الموافقة'),
+                    subtitle: Text(subtitle),
+                    onTap: () => onNavigate(3),
+                  ),
+                );
+              },
             ),
             if (settings != null) ...[
               Padding(
@@ -104,13 +126,14 @@ class DashboardPage extends StatelessWidget {
               ...settings.categories.map(
                 (category) => FutureBuilder<int>(
                   future: db.stockCount(uid, category.key),
-                  builder: (_, snapshot) => Card(
-                    child: ListTile(
-                      title: Text('فئة ${category.label}'),
-                      trailing: Text('${snapshot.data ?? 0} كرت'),
-                      onTap: () => onNavigate(2),
-                    ),
-                  ),
+                  builder:
+                      (_, snapshot) => Card(
+                        child: ListTile(
+                          title: Text('فئة ${category.label}'),
+                          trailing: Text('${snapshot.data ?? 0} كرت'),
+                          onTap: () => onNavigate(2),
+                        ),
+                      ),
                 ),
               ),
             ],
